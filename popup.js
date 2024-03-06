@@ -1,8 +1,8 @@
 // let screenWidth = window.screen.width;
 // document.body.style.minWidth = screenWidth * 0.3 + "px";
-document.body.style.minWidth = "600px";
-document.body.style.maxWidth = "800px";
-document.body.style.maxHeight = "1400px";
+// document.body.style.minWidth = "600px";
+// document.body.style.maxWidth = "800px";
+// document.body.style.maxHeight = "1400px";
 
 window.onload = function () {
   var summaryArea = document.getElementById("summary-area");
@@ -37,18 +37,22 @@ function fetchArticleText() {
 }
 
 async function summarizeText(text, length) {
+  // Check if both text and length are provided
   if (!text || !length) {
     console.error("Invalid parameters provided to summarizeText");
     return;
   }
 
   try {
-    let url = "https://api.example.com/data";
+    // Get the API key from local storage
+    const apiKey = await chrome.storage.local.get("apiKey");
+
+    let url = "https://api.openai.com/v1/engines/gpt-3.5-turbo-instruct/completions";
     let options = {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${chrome.storage.local.get("apiKey")}`
+        Authorization: `Bearer ${apiKey.apiKey}`
       },
       body: JSON.stringify({
         prompt: `Please provide a concise and comprehensive summary of the given text. The summary should capture the main points and key details of the text while conveying the author's intended meaning accurately. Please ensure that the summary is well-organized and easy to read, with clear headings and subheadings to guide the reader through each section. The length of the summary should be so that it can be read in ${length}. Do not exceed this reading time, under any circumstances. Check the length of the summary before returning it. The summary should be appropriate to capture the main points and key details of the text, without including unnecessary information or becoming overly long. \n\nText to summarize:\n\n${text}`,
@@ -64,7 +68,7 @@ async function summarizeText(text, length) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${chrome.storage.local.get("apiKey")}`
+        Authorization: `Bearer ${apiKey.apiKey}`
       },
       body: JSON.stringify({
         prompt: `Please provide a concise and comprehensive summary of the given text. The summary should capture the main points and key details of the text while conveying the author's intended meaning accurately. Please ensure that the summary is well-organized and easy to read, with clear headings and subheadings to guide the reader through each section. The length of the summary should be so that it can be read in ${length}. Try to not exceed this reading time. The summary should be appropriate to capture the main points and key details of the text, without including unnecessary information or becoming overly long. \n\nText to summarize:\n\n${text}`,
