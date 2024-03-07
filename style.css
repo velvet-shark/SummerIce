@@ -37,10 +37,6 @@ button {
   align-items: center;
 }
 
-.button-container {
-  display: flex;
-}
-
 #summary-area {
   padding: 20px;
   margin: 20px 0;
