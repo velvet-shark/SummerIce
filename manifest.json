@@ -12,14 +12,12 @@
       "48": "images/icon-48.png",
       "128": "images/icon-128.png"
     },
-    "default_title": "SummerIce 🔅🧊 - Page Summarizer",
-    "default_width": 1400,
-    "default_height": 1400
+    "default_title": "SummerIce 🔅🧊 - Page Summarizer"
   },
   "content_scripts": [
     {
       "matches": ["*://*/*"],
-      "js": ["popup.js"]
+      "js": ["content.js"]
     }
   ],
   "icons": {
@@ -30,5 +28,14 @@
   },
   "background": {
     "service_worker": "background.js"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Summarize the current page"
+    }
   }
 }

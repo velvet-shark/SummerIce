@@ -8,6 +8,11 @@ body {
   padding: 0px 20px 20px 20px;
 }
 
+.popup {
+  width: 700px;
+  /* height: 500px; */
+}
+
 h1 {
   font-size: 24px;
   margin: 0;
@@ -56,4 +61,24 @@ button {
   margin: 0 0 0 10px;
   font-family: Verdana, "Roboto", sans-serif;
   font-size: 16px;
+}
+
+.spinner {
+  display: none;
+  border: 6px solid #f3f3f3;
+  border-top: 6px solid #3498db;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 40px auto;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
