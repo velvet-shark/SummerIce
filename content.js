@@ -1,1 +1,1 @@
-chrome.runtime.sendMessage({ action: "summarizePage" });
+chrome.runtime.sendMessage({ action: "performSummarization" });

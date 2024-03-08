@@ -1,6 +1,6 @@
 # 🔅🧊 SummerIce
 
-A browser add-on to summarize articles. Quickly.
+A browser extension to summarize articles. Quickly.
 
 Works on any website. Just click the icon and get a summary.
 

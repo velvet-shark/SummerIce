@@ -30,6 +30,33 @@ chrome.commands.onCommand.addListener(function (command) {
   }
 });
 
+// chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+//   if (request.action === "summarizePage") {
+//     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+//       const url = tabs[0].url;
+//       chrome.scripting.executeScript(
+//         {
+//           target: { tabId: tabs[0].id },
+//           function: function () {
+//             return document.body.textContent;
+//           }
+//         },
+//         (result) => {
+//           if (chrome.runtime.lastError) {
+//             console.error(chrome.runtime.lastError);
+//           } else {
+//             // Call the summarizeText function with the URL
+//             summarizeText(url).then((summary) => {
+//               // Send the summary to the popup
+//               chrome.runtime.sendMessage({ summary: summary });
+//             });
+//           }
+//         }
+//       );
+//     });
+//   }
+// });
+
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request.action === "summarizePage") {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
@@ -45,11 +72,8 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
           if (chrome.runtime.lastError) {
             console.error(chrome.runtime.lastError);
           } else {
-            // Call the summarizeText function with the URL
-            summarizeText(url).then((summary) => {
-              // Send the summary to the popup
-              chrome.runtime.sendMessage({ summary: summary });
-            });
+            // Send a message to the popup to perform summarization
+            chrome.runtime.sendMessage({ action: "performSummarization", url: url });
           }
         }
       );

@@ -19,6 +19,14 @@ h1 {
   padding: 15px 0 0 0;
 }
 
+h3 {
+  font-size: 18px;
+  margin: 0 0 10px 0;
+  padding: 15px 0 0 0;
+  color: green;
+  font-weight: 600;
+}
+
 button {
   background-color: #4caf50; /* Green */
   border: none;
@@ -47,16 +55,39 @@ button {
 
 #setupForm {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: left;
   margin: 20px 0;
+  width: 770px;
 }
+
 #setupForm input[type="text"] {
-  /* #setupForm button { */
   height: 30px;
   padding: 0px 10px;
   margin: 0 0 0 10px;
   font-family: Verdana, "Roboto", sans-serif;
   font-size: 16px;
+}
+
+#setupForm label {
+  display: inline-block;
+  width: 220px;
+  text-align: left;
+  margin-right: 10px;
+}
+
+#setupForm button {
+  margin: 30px 0 0 0;
+}
+
+.instruction-box {
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin: 10px 0;
+  font-size: 0.9em;
+  color: #666;
+  background-color: #f9f9f9;
+  border-radius: 5px;
 }
 
 .spinner {
