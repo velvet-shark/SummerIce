@@ -26,6 +26,35 @@ async function summarizeText(url) {
 
     let response;
 
+    const prompt0 = `Please provide a concise and comprehensive summary of the article at URL: ${url}. The summary should capture the main points and key details of the text while conveying the author's intended meaning accurately. Please ensure that the summary is well-organized and easy to read, with clear headings and subheadings to guide the reader through each section. The length of the summary should be so that it can be read in under 1 minute. Try to not exceed this reading time. The summary should be appropriate to capture the main points and key details of the text, without including unnecessary information or becoming overly long. Do not include any intro text, e.g. 'Here is a concise summary of the article at the provided URL', get straight to the summary.`;
+
+    const prompt1 = `Please provide a concise summary of the article at the given URL, focusing on the key points and main takeaways. The summary should be around 200 words and capture the essential information while preserving the original meaning and context. Organize the summary into clear, logical paragraphs. Avoid including minor details or tangential information. The goal is to provide a quick, informative overview of the article's core content.
+    URL: ${url}`;
+
+    const prompt2 = `Generate a summary of the article at the provided URL using the following format:
+        - Introduction (1-2 sentences)
+        - Key Points:
+            - Point 1 (1-2 sentences)
+            - Point 2 (1-2 sentences)
+            - Point 3 (1-2 sentences)
+        - Conclusion (1-2 sentences)
+        Each bullet point should capture a main idea or takeaway from the article. The entire summary should be around 200-250 words. Focus on clarity, brevity, and accuracy in conveying the essential information.
+        URL: ${url}`;
+
+    const prompt3 = `Provide a TLDR (Too Long; Didn't Read) style summary of the article at the given URL. Start with a brief context sentence to orient the reader, then summarize the main points in 3-4 concise sentences. Aim for a total length of around 150 words. The summary should be easily understandable without having read the original article, while still capturing the key information accurately.
+        URL: ${url}`;
+
+    const prompt4 = `Create a narrative summary of the article at the provided URL, weaving in 2-3 key quotes from the original text. The summary should tell a coherent story, highlighting the main ideas and conclusions in around 250 words. Use the quotes to support and illustrate the core points. Maintain a neutral, informative tone and present the information objectively.
+        URL: ${url}`;
+
+    const prompt5 = `Generate a summary of the article at the given URL by answering the following questions:
+        1. What is the main topic or issue discussed in the article?
+        2. What are the 2-3 most important points or arguments made?
+        3. What evidence, examples, or data are used to support these points?
+        4. What conclusions or recommendations does the article make?
+        Keep the answers concise, limiting the entire summary to around 200-250 words. Focus on accurately capturing the essential information while maintaining clarity and coherence.
+        URL: ${url}`;
+
     // Prompt for Anthropic API
     if (apiKey.startsWith("sk-ant-")) {
       response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -41,7 +70,7 @@ async function summarizeText(url) {
           messages: [
             {
               role: "user",
-              content: `Please provide a concise and comprehensive summary of the article at URL: ${url}. The summary should capture the main points and key details of the text while conveying the author's intended meaning accurately. Please ensure that the summary is well-organized and easy to read, with clear headings and subheadings to guide the reader through each section. The length of the summary should be so that it can be read in under 1 minute. Try to not exceed this reading time. The summary should be appropriate to capture the main points and key details of the text, without including unnecessary information or becoming overly long. Do not include any intro text, e.g. 'Here is a summary at the provided URL', get straight to summary.`
+              content: prompt2
             }
           ]
         })
@@ -56,7 +85,7 @@ async function summarizeText(url) {
           Authorization: `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          prompt: `Please provide a concise and comprehensive summary of the article at URL: ${url}. The summary should capture the main points and key details of the text while conveying the author's intended meaning accurately. Please ensure that the summary is well-organized and easy to read, with clear headings and subheadings to guide the reader through each section. The length of the summary should be so that it can be read in under 1 minute. Try to not exceed this reading time. The summary should be appropriate to capture the main points and key details of the text, without including unnecessary information or becoming overly long. Do not include any intro text, e.g. 'Here is a concise summary of the article at the provided URL', get straight to the summary.`,
+          prompt: prompt2,
           max_tokens: 3800
         })
       });
