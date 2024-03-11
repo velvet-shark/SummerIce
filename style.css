@@ -3,7 +3,6 @@ body {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  /* height: 100vh; */
   background-color: #49108b;
   margin: 0;
   padding: 0;
@@ -12,6 +11,7 @@ body {
   font-size: 16px;
   line-height: 1.4;
   padding: 0px 20px 20px 20px;
+  border-radius: 15px;
 }
 
 #content {
@@ -24,12 +24,12 @@ body {
 
 .popup {
   width: 700px;
-  /* height: 500px; */
 }
 
 h1 {
   font-size: 24px;
   margin: 0;
+  color: white;
   padding: 15px 0 0 0;
 }
 
@@ -63,7 +63,7 @@ button {
   margin: 20px 0;
   border: 1px solid #ddd;
   border-radius: 4px;
-  background-color: #ffffe0;
+  background-color: #f3f8ff;
 }
 
 #setupForm {

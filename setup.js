@@ -1,5 +1,3 @@
-console.log("setup.js loaded");
-
 document.getElementById("setupForm").addEventListener("submit", function (event) {
   event.preventDefault();
 
@@ -15,8 +13,8 @@ document.getElementById("setupForm").addEventListener("submit", function (event)
 
   // Save the API key
   const openaiApiKey = document.getElementById("openaiApiKey").value;
-  // const anthropicApiKey = document.getElementById("anthropicApiKey").value;
-  const apiKey = openaiApiKey; // || anthropicApiKey;
+  const anthropicApiKey = document.getElementById("anthropicApiKey").value;
+  const apiKey = openaiApiKey || anthropicApiKey;
   chrome.storage.local.set({ apiKey: apiKey }, function () {
     console.log("API key saved");
   });
