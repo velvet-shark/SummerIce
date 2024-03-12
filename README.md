@@ -1,3 +1,5 @@
+![SummerIce Icon](/images/icon-128.png)
+
 # ☀️🧊 SummerIce
 
 A browser extension to summarize articles. Quickly.
