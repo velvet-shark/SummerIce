@@ -1,4 +1,4 @@
-# 🔅🧊 SummerIce
+# ☀️🧊 SummerIce
 
 A browser extension to summarize articles. Quickly.
 

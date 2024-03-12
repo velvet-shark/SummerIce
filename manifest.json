@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "SummerIce 🔅🧊 - Page Summarizer",
+  "name": "SummerIce ☀️🧊 - Page Summarizer",
   "version": "1.0.0",
   "description": "Summarize articles. Quickly.",
   "permissions": ["activeTab", "storage", "scripting"],
@@ -15,7 +15,7 @@
       "48": "images/icon-48.png",
       "128": "images/icon-128.png"
     },
-    "default_title": "SummerIce 🔅🧊 - Page Summarizer"
+    "default_title": "SummerIce ☀️🧊 - Page Summarizer"
   },
   "content_scripts": [
     {
