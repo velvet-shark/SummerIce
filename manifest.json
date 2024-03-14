@@ -3,7 +3,7 @@
   "name": "SummerIce ☀️🧊 - Page Summarizer",
   "version": "1.0.0",
   "description": "Summarize articles. Quickly.",
-  "permissions": ["activeTab", "storage", "scripting"],
+  "permissions": ["activeTab", "storage"],
   "background": {
     "service_worker": "background.js"
   },
