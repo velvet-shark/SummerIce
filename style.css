@@ -10,14 +10,15 @@ body {
   font-family: Montserrat, Verdana, "Roboto", sans-serif;
   font-size: 16px;
   line-height: 1.4;
-  padding: 0px 20px 20px 20px;
+  padding: 0px 10px 10px 10px;
   border-radius: 15px;
+  overflow-x: hidden;
 }
 
 #content {
   background-color: #f3f8ff;
-  padding: 20px;
-  margin: 20px 0;
+  padding: 10px;
+  margin: 10px 0;
   border-radius: 10px;
   box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
 }
@@ -30,7 +31,7 @@ h1 {
   font-size: 24px;
   margin: 0;
   color: white;
-  padding: 15px 0 0 0;
+  padding: 10px 0 0 0;
 }
 
 h3 {
@@ -59,8 +60,8 @@ button {
 }
 
 #summary-area {
-  padding: 20px;
-  margin: 20px 0;
+  padding: 15px;
+  margin: 10px 0;
   border: 1px solid #ddd;
   border-radius: 4px;
   background-color: #f3f8ff;
@@ -84,7 +85,7 @@ button {
 
 #setupForm label {
   display: inline-block;
-  width: 180px;
+  width: 220px;
   text-align: left;
   margin-right: 10px;
 }
