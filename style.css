@@ -9,7 +9,7 @@ body {
   box-sizing: border-box;
   font-family: Montserrat, Verdana, "Roboto", sans-serif;
   font-size: 16px;
-  line-height: 1.4;
+  line-height: 1.2;
   padding: 0px 10px 10px 10px;
   border-radius: 15px;
   overflow-x: hidden;
@@ -24,7 +24,7 @@ body {
 }
 
 .popup {
-  width: 800px;
+  width: 780px;
 }
 
 h1 {
