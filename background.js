@@ -64,8 +64,10 @@ async function summarizeText(extractedContent) {
 
     let response;
 
-    const prompt = `Please provide a concise summary of the article below.
+    const prompt = `Provide a concise summary of the article below.
         The summary should be around 200 words and capture the essential information while preserving the original meaning and context. Organize the summary into clear, logical paragraphs. Avoid including minor details or tangential information. The goal is to provide a quick, informative overview of the article's core content.
+
+        Do not include any intro text, e.g. 'Here is a concise summary of the article at the provided URL', get straight to the summary.
     
         Article:
         ---
@@ -134,8 +136,9 @@ async function summarizeText(extractedContent) {
           Authorization: `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: "gpt-4-0125-preview",
-          max_tokens: 3800,
+          // model: "gpt-4-0125-preview",
+          model: "gpt-4o-mini",
+          max_tokens: 4096,
           messages: [{ role: "user", content: prompt }],
           // messages: [{ role: "user", content: "Say hello" }],
           temperature: 0.7
