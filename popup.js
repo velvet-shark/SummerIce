@@ -13,6 +13,11 @@ window.onload = function () {
   }
 };
 
+document.getElementById("settingsLink").addEventListener("click", function (event) {
+  event.preventDefault();
+  chrome.runtime.openOptionsPage();
+});
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "summarizationResult") {
     displaySummary(request.summary);

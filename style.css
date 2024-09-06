@@ -19,6 +19,19 @@ body {
   width: 100%;
   padding: 2px 15px;
   box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#settingsLink {
+  color: #e6e6fa;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+#settingsLink:hover {
+  text-decoration: underline;
 }
 
 #content {
