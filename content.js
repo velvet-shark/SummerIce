@@ -3,6 +3,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "extractContent") {
     const content = extractContent();
     chrome.runtime.sendMessage({ type: "extractedContent", content: content });
+  } else if (request.type === "ping") {
+    // Respond to ping
+    sendResponse({ status: "ok" });
   }
 });
 
@@ -12,9 +15,6 @@ function extractContent() {
   const content = document.body.innerText;
   return content;
 }
-
-// // Send the extracted content to the background script
-// chrome.runtime.sendMessage({ type: "extractedContent", content: extractContent() });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "summarizationResult") {
