@@ -35,11 +35,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 function displaySummary(summary) {
   const summaryArea = document.getElementById("summary-area");
   const spinner = document.getElementById("spinner");
+  const timeoutMessage = document.getElementById("timeout-message");
 
   if (summary) {
     summaryArea.style.display = "block";
     summaryArea.innerText = summary;
     spinner.style.display = "none";
+    timeoutMessage.style.display = "none";
   } else {
     summaryArea.style.display = "none";
     spinner.style.display = "block";
@@ -60,3 +62,10 @@ document.getElementById("settingsLink").addEventListener("click", function (even
   event.preventDefault();
   chrome.runtime.openOptionsPage();
 });
+
+setTimeout(() => {
+  if (document.getElementById("spinner").style.display !== "none") {
+    document.getElementById("spinner").style.display = "none";
+    document.getElementById("timeout-message").style.display = "block";
+  }
+}, 10000);
