@@ -88,12 +88,21 @@ async function summarizeText(extractedContent) {
     });
 
     const data = await response.json();
+    // Log the full response data for debugging
+    console.log("OpenAI API Response Status:", response.status);
+    console.log("OpenAI API Response Data:", data);
+
     if (data && data.choices && data.choices.length > 0) {
       return data.choices[0].message.content;
     } else {
-      throw new Error("No choices returned from the API");
+      // Include the error details from the API response if available
+      const errorMessage = data?.error?.message || "No choices returned from the API";
+      console.error("API Error Details:", data?.error);
+      throw new Error(errorMessage);
     }
   } catch (error) {
-    console.error(`An error occurred: ${error}`);
+    console.error(`An error occurred in summarizeText: ${error}`);
+    // Propagate the error so the caller (.catch in the message listener) can handle it
+    throw error;
   }
 }
