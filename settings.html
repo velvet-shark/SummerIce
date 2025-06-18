@@ -11,15 +11,78 @@
     <div id="content" style="width: 740px; padding: 10px 20px 15px 20px">
       <form id="settingsForm">
         <div>
-          <h3>Update your OpenAI API Key</h3>
-          <div style="margin: 25px 0">
-            <label for="apiKey"><strong>OpenAI API Key:</strong></label>
-            <input type="text" id="apiKey" name="apiKey" placeholder="sk-xxxxxxxxxxxxxxxxx" size="52" />
+          <h3>AI Provider Configuration</h3>
+
+          <!-- Provider Selection -->
+          <div style="margin: 15px 0">
+            <label for="provider"><strong>AI Provider:</strong></label>
+            <select id="provider" name="provider" style="margin: 0 0 0 10px; padding: 5px; font-size: 16px">
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="grok">xAI Grok</option>
+            </select>
+          </div>
+
+          <!-- Model Selection -->
+          <div style="margin: 15px 0">
+            <label for="model"><strong>Model:</strong></label>
+            <select id="model" name="model" style="margin: 0 0 0 10px; padding: 5px; font-size: 16px">
+              <!-- Options will be populated by JavaScript -->
+            </select>
+          </div>
+
+          <!-- API Key -->
+          <div style="margin: 15px 0; display: flex; align-items: center">
+            <label for="apiKey" style="width: 220px; display: inline-block"><strong>API Key:</strong></label>
+            <input
+              type="text"
+              id="apiKey"
+              name="apiKey"
+              placeholder="Enter your API key"
+              style="flex: 1; margin: 0 0 0 10px"
+            />
+            <button type="button" id="testApiKey" style="margin-left: 10px; padding: 5px 10px; white-space: nowrap">
+              Test
+            </button>
+          </div>
+
+          <div id="apiKeyHelp" class="instruction-box" style="margin: 0 0 15px 0; padding: 10px">
+            <p style="margin: 5px"><strong>Get your API key:</strong></p>
+            <ul id="apiKeyLinks">
+              <!-- Links will be populated by JavaScript -->
+            </ul>
           </div>
         </div>
-        <button type="submit" value="Submit">Update API key</button>
+
+        <div>
+          <h3>Summary Preferences</h3>
+
+          <!-- Summary Length -->
+          <div style="margin: 15px 0">
+            <label for="summaryLength"><strong>Summary Length:</strong></label>
+            <select id="summaryLength" name="summaryLength" style="margin: 0 0 0 10px; padding: 5px; font-size: 16px">
+              <option value="BRIEF">Brief (~100 words)</option>
+              <option value="STANDARD">Standard (~200 words)</option>
+              <option value="DETAILED">Detailed (~400 words)</option>
+            </select>
+          </div>
+
+          <!-- Summary Format -->
+          <div style="margin: 15px 0">
+            <label for="summaryFormat"><strong>Summary Format:</strong></label>
+            <select id="summaryFormat" name="summaryFormat" style="margin: 0 0 0 10px; padding: 5px; font-size: 16px">
+              <option value="paragraph">Paragraphs</option>
+              <option value="bullets">Bullet Points</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="submit" value="Submit">Save Settings</button>
       </form>
-      <div id="message"></div>
+
+      <!-- Message display area -->
+      <div id="message" class="message-display"></div>
     </div>
     <footer
       style="
@@ -37,6 +100,6 @@
         >
       </p>
     </footer>
-    <script src="settings.js"></script>
+    <script type="module" src="settings.js"></script>
   </body>
 </html>

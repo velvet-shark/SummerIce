@@ -12,34 +12,62 @@
     <div id="content" style="width: 740px; padding: 10px 20px 15px 20px">
       <form id="setupForm">
         <div>
-          <h3>Enter your OpenAI API Key</h3>
+          <h3>Choose Your AI Provider</h3>
           <p>
-            SummerIce uses OpenAI's powerful language models to generate article summaries. Your API key is required to
-            access these models securely.
+            SummerIce supports multiple AI providers to generate article summaries. Choose your preferred provider and
+            enter your API key.
           </p>
+
+          <!-- Provider Selection -->
           <div style="margin: 25px 0">
-            <label for="apiKey"><strong>OpenAI API Key:</strong></label>
-            <input type="text" id="apiKey" name="apiKey" placeholder="sk-xxxxxxxxxxxxxxxxx" size="52" />
+            <label for="provider"><strong>AI Provider:</strong></label>
+            <select
+              id="provider"
+              name="provider"
+              style="margin: 0 0 0 10px; padding: 5px; font-size: 16px; width: 200px"
+            >
+              <option value="openai">OpenAI (Recommended)</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="grok">xAI Grok</option>
+            </select>
           </div>
+
+          <!-- Model Selection -->
+          <div style="margin: 25px 0">
+            <label for="model"><strong>Model:</strong></label>
+            <select id="model" name="model" style="margin: 0 0 0 10px; padding: 5px; font-size: 16px; width: 200px">
+              <!-- Options will be populated by JavaScript -->
+            </select>
+          </div>
+
+          <!-- API Key -->
+          <div style="margin: 25px 0">
+            <label for="apiKey"><strong>API Key:</strong></label>
+            <input type="text" id="apiKey" name="apiKey" placeholder="Enter your API key" size="52" />
+          </div>
+
           <div class="instruction-box">
-            Why do we need your API key?
+            <div id="providerInfo">
+              <!-- Will be populated by JavaScript -->
+            </div>
+
+            <p><strong>Why do we need your API key?</strong></p>
             <ul>
-              <li>To ensure secure access to OpenAI's services</li>
-              <li>To allow you to use your own OpenAI account and manage your usage</li>
-              <li>
-                To protect your privacy by not storing your key on our servers. Your API key lives in your browser and
-                stays there.
-              </li>
+              <li>To ensure secure access to AI services</li>
+              <li>To allow you to use your own account and manage your usage</li>
+              <li>To protect your privacy - your API key lives in your browser and stays there</li>
             </ul>
-            You can create your OpenAI API key on the
-            <a href="https://platform.openai.com/api-keys" target="_blank">API keys</a> page in your dashboard.<br /><br />
-            If you don't have an OpenAI API account, you can sign up for one
-            <a href="https://platform.openai.com/signup" target="_blank">here</a>.
+
+            <p><strong>Get your API key:</strong></p>
+            <ul id="apiKeyLinks">
+              <!-- Will be populated by JavaScript -->
+            </ul>
           </div>
         </div>
         <button type="submit" value="Submit">Submit API key</button>
       </form>
     </div>
   </body>
-  <script src="setup.js"></script>
+  <script type="module" src="setup.js"></script>
 </html>

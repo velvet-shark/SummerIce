@@ -1,108 +1,196 @@
-console.log("Background script started");
+import { CONFIG } from './constants.js';
+import APIClient from './api-client.js';
+import SummaryCache from './cache.js';
 
-chrome.storage.local.get(["apiKey"], function (result) {
-  if (result.apiKey) {
-    console.log("API key is defined");
-  } else {
-    console.log("API key is not defined");
-  }
-});
+
+// Initialize modules
+const apiClient = new APIClient();
+const cache = new SummaryCache();
+let offscreenDocument = null;
+
+// Clean up cache on startup
+cache.cleanup();
+
+// Migrate existing users to new settings format
+migrateUserSettings();
+
+// Migration function for existing users
+async function migrateUserSettings() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['apiKey', 'provider', 'model', 'migrated'], (result) => {
+      // Skip if already migrated or this is a fresh install
+      if (result.migrated || (!result.apiKey && !result.provider)) {
+        resolve();
+        return;
+      }
+
+      
+      // If user has an apiKey but no provider/model settings, migrate them
+      const migrationData = {
+        migrated: true
+      };
+
+      // If they have an API key but no provider set, assume OpenAI (legacy behavior)
+      if (result.apiKey && !result.provider) {
+        migrationData.provider = CONFIG.DEFAULTS.provider; // 'openai'
+        migrationData.model = CONFIG.DEFAULTS.model; // 'gpt-4o-mini'
+        migrationData.summaryLength = CONFIG.DEFAULTS.summaryLength;
+        migrationData.summaryFormat = CONFIG.DEFAULTS.summaryFormat;
+        
+      }
+
+      // Save migration data
+      chrome.storage.local.set(migrationData, () => {
+        resolve();
+      });
+    });
+  });
+}
 
 // After extension installation, run setup
 chrome.runtime.onInstalled.addListener(function (details) {
   if (details.reason === "install") {
-    console.log("Extension installed");
     chrome.tabs.create({ url: "setup.html" });
+  } else if (details.reason === "update") {
+    // Don't show setup for existing users, migration handles everything
   }
 });
 
+// Handle keyboard command
 chrome.commands.onCommand.addListener(function (command) {
   if (command === "_execute_action") {
-    console.log("Background script received command:", command);
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      chrome.tabs.sendMessage(tabs[0].id, { type: "extractContent" });
+      if (tabs[0]) {
+        chrome.tabs.sendMessage(tabs[0].id, { type: "extractContent" });
+      }
     });
   }
 });
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === "extractedContent") {
-    const extractedContent = request.content.trim();
-
-    summarizeText(extractedContent)
-      .then((summary) => {
-        console.log("Generated summary:", summary);
-        // Send the summary to the popup
-        chrome.runtime.sendMessage({ type: "summarizationResult", summary });
-      })
-      .catch((error) => {
-        console.error("Error generating summary:", error);
-      });
-  }
-});
-
-async function summarizeText(extractedContent) {
-  console.log("Inside summarizeText function. Content:\n", extractedContent);
-  // Check if extracted content is available
-  if (!extractedContent) {
-    console.error("Extracted content not found");
+// Create offscreen document for content extraction
+async function createOffscreenDocument() {
+  if (offscreenDocument) {
     return;
   }
 
   try {
-    // Get the API key from local storage
-    const apiKey = await new Promise((resolve) => {
-      console.log("Getting API key from chrome.storage.local");
-      chrome.storage.local.get("apiKey", (result) => {
-        resolve(result.apiKey);
-      });
+    await chrome.offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['DOM_PARSER'],
+      justification: 'Parse HTML content using Mozilla Readability for article extraction'
     });
-
-    if (!apiKey) {
-      throw new Error("API key not found in chrome.storage.local");
-    }
-
-    const prompt = `Provide a concise summary of the article below.
-        The summary should be around 200 words and capture the essential information while preserving the original meaning and context. Organize the summary into clear, logical paragraphs. Avoid including minor details or tangential information. The goal is to provide a quick, informative overview of the article's core content.
-
-        Do not include any intro text, e.g. 'Here is a concise summary of the article at the provided URL', get straight to the summary.
-    
-        Article:
-        ---
-        ${extractedContent}
-        ---
-        `;
-
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7
-      })
-    });
-
-    const data = await response.json();
-    // Log the full response data for debugging
-    console.log("OpenAI API Response Status:", response.status);
-    console.log("OpenAI API Response Data:", data);
-
-    if (data && data.choices && data.choices.length > 0) {
-      return data.choices[0].message.content;
-    } else {
-      // Include the error details from the API response if available
-      const errorMessage = data?.error?.message || "No choices returned from the API";
-      console.error("API Error Details:", data?.error);
-      throw new Error(errorMessage);
-    }
+    offscreenDocument = true;
   } catch (error) {
-    console.error(`An error occurred in summarizeText: ${error}`);
-    // Propagate the error so the caller (.catch in the message listener) can handle it
-    throw error;
+    console.error('Failed to create offscreen document:', error);
   }
 }
+
+// Close offscreen document
+async function closeOffscreenDocument() {
+  if (!offscreenDocument) {
+    return;
+  }
+
+  try {
+    await chrome.offscreen.closeDocument();
+    offscreenDocument = false;
+  } catch (error) {
+    console.error('Failed to close offscreen document:', error);
+  }
+}
+
+// Main message handler
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+
+  if (request.type === "extractedHTML") {
+    handleContentExtraction(request.htmlContent, request.url, request.title);
+  } else if (request.type === "cancelSummary") {
+    apiClient.cancelRequest();
+    closeOffscreenDocument();
+  }
+});
+
+// Handle content extraction and summarization
+async function handleContentExtraction(htmlContent, url, title) {
+  try {
+    // Get current settings
+    const settings = await apiClient.getSettings();
+    
+    // Check cache first
+    const cachedSummary = await cache.get(url, settings);
+    if (cachedSummary) {
+      chrome.runtime.sendMessage({ 
+        type: "summarizationResult", 
+        summary: cachedSummary,
+        fromCache: true 
+      });
+      return;
+    }
+
+    // Create offscreen document for extraction
+    await createOffscreenDocument();
+
+    // Extract content using offscreen document
+    const extractionResult = await new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { type: "extractContent", htmlContent, url },
+        (result) => resolve(result)
+      );
+    });
+
+    try {
+      if (!extractionResult || !extractionResult.success) {
+        throw new Error(extractionResult?.error || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED);
+      }
+
+      const extractedContent = extractionResult.content;
+
+      // Generate summary using API
+      const summary = await apiClient.callAPI(extractedContent);
+      
+      // Cache the result
+      await cache.set(url, settings, summary);
+
+      // Send result to popup
+      chrome.runtime.sendMessage({ 
+        type: "summarizationResult", 
+        summary: summary,
+        title: title,
+        fromCache: false 
+      });
+
+    } catch (error) {
+      console.error("Summarization error:", error);
+      chrome.runtime.sendMessage({ 
+        type: "summarizationError", 
+        error: error.message || CONFIG.ERRORS.API_CALL_FAILED 
+      });
+    } finally {
+      // Clean up offscreen document
+      setTimeout(() => closeOffscreenDocument(), 1000);
+    }
+
+  } catch (error) {
+    console.error("Content extraction error:", error);
+    chrome.runtime.sendMessage({ 
+      type: "summarizationError", 
+      error: error.message || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED 
+    });
+    closeOffscreenDocument();
+  }
+}
+
+// Handle extension lifecycle
+chrome.runtime.onSuspend.addListener(() => {
+  apiClient.cancelRequest();
+  closeOffscreenDocument();
+});
+
+// Error handler for unhandled errors
+self.addEventListener('error', (event) => {
+  console.error('Unhandled error in background script:', event.error);
+});
+
+self.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection in background script:', event.reason);
+});

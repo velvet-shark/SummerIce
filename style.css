@@ -1,7 +1,8 @@
+/* ===== BASE STYLES ===== */
 body {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   background-color: #49108b;
   margin: 0;
@@ -12,39 +13,41 @@ body {
   line-height: 1.3;
   border-radius: 0px;
   overflow-x: hidden;
+  min-width: 800px;
+  min-height: 400px;
 }
 
+/* ===== LAYOUT COMPONENTS ===== */
 #header {
   background-color: #49108b;
   width: 100%;
-  padding: 2px 15px;
+  min-width: 800px;
+  padding: 8px 20px;
   box-sizing: border-box;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-#settingsLink {
-  color: #e6e6fa;
-  text-decoration: none;
-  font-size: 14px;
-}
-
-#settingsLink:hover {
-  text-decoration: underline;
-}
-
 #content {
   background-color: #f3f8ff;
-  padding: 10px;
-  margin: 10px 0;
+  padding: 15px;
+  margin: 10px;
   box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+  width: calc(100% - 20px);
+  max-width: 760px;
+  border-radius: 5px;
 }
 
 .popup {
-  width: 780px;
+  width: 800px; /* Maximum allowed width for Chrome extension popups */
+  min-width: 800px;
+  max-width: 800px;
+  min-height: 400px;
+  max-height: 600px; /* Maximum allowed height for Chrome extension popups */
 }
 
+/* ===== TYPOGRAPHY ===== */
 h1 {
   font-size: 24px;
   margin: 0;
@@ -59,8 +62,9 @@ h3 {
   color: green;
 }
 
+/* ===== BUTTONS ===== */
 button {
-  background-color: #4caf50; /* Green */
+  background-color: #4caf50;
   border: none;
   color: white;
   border-radius: 4px;
@@ -74,67 +78,289 @@ button {
   display: flex;
   justify-content: center;
   align-items: center;
+  transition: background-color 0.2s ease;
 }
 
+button:hover {
+  background-color: #45a049;
+}
+
+button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+/* ===== LINKS ===== */
+#settingsLink {
+  color: #e6e6fa;
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.2s ease;
+}
+
+#settingsLink:hover {
+  text-decoration: underline;
+  color: #ffffff;
+}
+
+/* General link styles */
+a {
+  color: #3498db;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+a:hover,
+a:focus {
+  color: #2980b9;
+  outline: none;
+}
+
+/* ===== SUMMARY AREA ===== */
 #summary-area {
-  padding: 15px;
+  padding: 20px;
   margin: 10px 0 0 0;
   background-color: #f3f8ff;
+  border-radius: 5px;
+  line-height: 1.4;
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-#setupForm {
+.summary-content {
+  margin-bottom: 15px;
+  text-align: justify;
+}
+
+.cache-indicator {
+  font-size: 12px;
+  color: #7f8c8d;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.error-message {
+  color: #e74c3c;
+  font-weight: 500;
+  text-align: center;
+  padding: 10px;
+  background-color: #fdf2f2;
+  border: 1px solid #fecaca;
+  border-radius: 5px;
+}
+
+/* ===== FORMS ===== */
+#setupForm,
+#settingsForm {
   display: flex;
   flex-direction: column;
-  align-items: left;
   margin: 10px 0;
-  width: 740px;
+  width: 100%;
+  max-width: 740px;
 }
 
-#setupForm input[type="text"] {
+#setupForm input[type="text"],
+#settingsForm input[type="text"] {
   height: 30px;
   padding: 0px 10px;
   margin: 0 0 0 10px;
   font-size: 16px;
+  /* font-family: "Fira Sans", Georgia, Futura, Montserrat, Verdana, "Roboto", sans-serif; */
+  font-family: "Fira Sans", Georgia, Futura, Montserrat, Verdana, "Roboto", sans-serif;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
 }
 
-#setupForm label {
+#setupForm label,
+#settingsForm label {
   display: inline-block;
   width: 220px;
   text-align: left;
   margin-right: 10px;
+  font-weight: 500;
 }
 
-#setupForm button {
+#setupForm button,
+#settingsForm button {
   margin: 10px 0 0 0;
   font-weight: bold;
+  align-self: flex-start;
 }
 
+select {
+  padding: 5px;
+  font-size: 16px;
+  font-family: "Fira Sans", Georgia, Futura, Montserrat, Verdana, "Roboto", sans-serif;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: white;
+  margin: 0 0 0 10px;
+}
+
+/* ===== INSTRUCTION BOX ===== */
 .instruction-box {
   border: 1px solid #ccc;
-  padding: 10px;
-  margin: 10px 0;
+  padding: 15px;
+  margin: 15px 0;
   font-size: 0.9em;
   color: #666;
   background-color: #f9f9f9;
   border-radius: 5px;
+  line-height: 1.4;
 }
 
+.instruction-box ul {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.instruction-box li {
+  margin: 5px 0;
+}
+
+/* ===== SPINNER & LOADING ===== */
 .spinner {
   display: none;
-  border: 6px solid #f3f3f3;
-  border-top: 6px solid #3498db;
+  border: 8px solid #f3f3f3;
+  border-top: 8px solid #3498db;
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-  margin: 40px auto;
+  width: 60px;
+  height: 60px;
+  -webkit-animation: spin 1s linear infinite !important;
+  -moz-animation: spin 1s linear infinite !important;
+  animation: spin 1s linear infinite !important;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-sizing: border-box;
+}
+
+#spinner {
+  display: none;
+  border: 8px solid #f3f3f3;
+  border-top: 8px solid #3498db;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  -webkit-animation: spin 1s linear infinite !important;
+  -moz-animation: spin 1s linear infinite !important;
+  animation: spin 1s linear infinite !important;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-sizing: border-box;
 }
 
 @keyframes spin {
   0% {
-    transform: rotate(0deg);
+    transform: translate(-50%, -50%) rotate(0deg);
   }
   100% {
-    transform: rotate(360deg);
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@-webkit-keyframes spin {
+  0% {
+    -webkit-transform: translate(-50%, -50%) rotate(0deg);
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    -webkit-transform: translate(-50%, -50%) rotate(360deg);
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@-moz-keyframes spin {
+  0% {
+    -moz-transform: translate(-50%, -50%) rotate(0deg);
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    -moz-transform: translate(-50%, -50%) rotate(360deg);
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+/* Note: Chrome extension popups have fixed maximum dimensions */
+.popup {
+  /* Always use maximum allowed dimensions for Chrome extension popups */
+  width: 800px !important;
+  min-width: 800px !important;
+  max-width: 800px !important;
+}
+
+/* Ensure forms and content scale properly within the fixed width */
+#setupForm,
+#settingsForm {
+  width: 100%;
+  max-width: 720px;
+}
+
+#setupForm input[type="text"],
+#settingsForm input[type="text"],
+select {
+  max-width: 400px;
+}
+
+/* ===== TIMEOUT MESSAGE ===== */
+#timeout-message {
+  font-size: 18px;
+  color: black;
+  text-align: center;
+  padding: 20px;
+  margin: 20px 0 40px 0;
+  background-color: #ffff00;
+  border-radius: 10px;
+  border: 2px solid #f39c12;
+}
+
+/* ===== MESSAGE DISPLAY ===== */
+.message-display {
+  display: none;
+  width: 100%;
+  padding: 15px;
+  margin: 20px 0;
+  border-radius: 5px;
+  font-size: 16px;
+  font-weight: 500;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.message-display.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.message-display.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+/* ===== ACCESSIBILITY ===== */
+button:focus,
+input:focus,
+select:focus {
+  outline: 2px solid #3498db;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+
+  button {
+    transition: none;
   }
 }

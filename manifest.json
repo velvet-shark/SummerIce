@@ -1,11 +1,22 @@
 {
   "manifest_version": 3,
   "name": "SummerIce ☀️🧊 - Page Summarizer",
-  "version": "1.4",
-  "description": "Summarize articles. Quickly.",
-  "permissions": ["activeTab", "storage"],
+  "version": "2.0.0",
+  "description": "Summarize articles quickly with multiple AI providers (OpenAI, Anthropic, Gemini, Grok).",
+  "permissions": [
+    "activeTab", 
+    "storage",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.x.ai/*"
+  ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "action": {
     "default_popup": "popup.html",
@@ -18,11 +29,11 @@
     "default_title": "SummerIce ☀️🧊 - Page Summarizer"
   },
   "options_page": "settings.html",
-
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "js": ["content.js"],
+      "run_at": "document_idle"
     }
   ],
   "icons": {
@@ -39,5 +50,11 @@
       },
       "description": "Summarize the current page"
     }
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["node_modules/@mozilla/readability/Readability.js", "node_modules/dompurify/dist/purify.min.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
