@@ -22,3 +22,15 @@ _Note: You need an OpenAI API key to use this extension. You can get one from [O
   - https://docs.x.ai/docs/models
 - Run `npm run test:models` with `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, and `GROK_API_KEY` set.
   - The test runner loads `.env` automatically if present.
+
+## Build Chrome Web Store ZIP
+1. Install dependencies so vendor files are available: `npm install`
+2. Build the release zip: `npm run build:zip`
+3. Upload `build/summerice-<version>.zip` to the Chrome Web Store
+
+## Version Update Notes
+When bumping versions, update all of the following:
+- `manifest.json` `version`
+- `package.json` `version`
+- `README.md` "Current version" line
+- Chrome Web Store listing release notes/version text
