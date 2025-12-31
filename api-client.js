@@ -40,12 +40,16 @@ class APIClient {
 
   // Create request payload for OpenAI
   createOpenAIRequest(prompt, model, maxTokens) {
-    return {
+    const requestBody = {
       model: model,
-      max_tokens: maxTokens,
-      messages: [{ role: "user", content: prompt }],
-      temperature: CONFIG.LLM_PROVIDERS.OPENAI.temperature
+      max_completion_tokens: maxTokens,
+      messages: [{ role: "user", content: prompt }]
     };
+    const temperature = CONFIG.LLM_PROVIDERS.OPENAI.temperature;
+    if (!model.startsWith("gpt-5") && typeof temperature === "number") {
+      requestBody.temperature = temperature;
+    }
+    return requestBody;
   }
 
   // Create request payload for Anthropic
@@ -92,8 +96,9 @@ class APIClient {
         headers['Authorization'] = `Bearer ${apiKey}`;
         break;
       case 'anthropic':
-        headers['Authorization'] = `Bearer ${apiKey}`;
+        headers['x-api-key'] = apiKey;
         headers['anthropic-version'] = '2023-06-01';
+        headers['anthropic-dangerous-direct-browser-access'] = 'true';
         break;
       case 'gemini':
         // Gemini uses API key in URL, not headers
@@ -264,10 +269,9 @@ class APIClient {
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: 4096,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7
+        model: 'gpt-5-mini',
+        max_completion_tokens: 8192,
+        messages: [{ role: 'user', content: prompt }]
       }),
       signal: AbortSignal.timeout(CONFIG.TIMEOUT_MS)
     });
@@ -292,40 +296,56 @@ class APIClient {
     const providerConfig = getProviderConfig(provider);
     
     if (!providerConfig) {
-      throw new Error(`Unsupported provider: ${provider}`);
+      return { ok: false, errorMessage: `Unsupported provider: ${provider}` };
+    }
+
+    let resolvedModel = model;
+    if (!providerConfig.models[resolvedModel]) {
+      const availableModels = Object.keys(providerConfig.models);
+      if (availableModels.length === 0) {
+        return { ok: false, errorMessage: `No models available for provider: ${provider}` };
+      }
+      resolvedModel = availableModels[0];
     }
 
     try {
       let requestBody;
       switch (provider) {
         case 'openai':
-          requestBody = this.createOpenAIRequest(testPrompt, model, 10);
+          requestBody = this.createOpenAIRequest(testPrompt, resolvedModel, 10);
           break;
         case 'anthropic':
-          requestBody = this.createAnthropicRequest(testPrompt, model, 10);
+          requestBody = this.createAnthropicRequest(testPrompt, resolvedModel, 10);
           break;
         case 'gemini':
-          requestBody = this.createGeminiRequest(testPrompt, model);
+          requestBody = this.createGeminiRequest(testPrompt, resolvedModel);
           requestBody.generationConfig.maxOutputTokens = 10;
           break;
         case 'grok':
-          requestBody = this.createGrokRequest(testPrompt, model, 10);
+          requestBody = this.createGrokRequest(testPrompt, resolvedModel, 10);
           break;
         default:
-          throw new Error(`Unsupported provider: ${provider}`);
+          return { ok: false, errorMessage: `Unsupported provider: ${provider}` };
       }
 
-      const response = await fetch(this.getAPIURL(provider, model, apiKey), {
+      const response = await fetch(this.getAPIURL(provider, resolvedModel, apiKey), {
         method: 'POST',
         headers: this.getHeaders(provider, apiKey),
         body: JSON.stringify(requestBody),
         signal: AbortSignal.timeout(5000) // 5 second timeout for test
       });
 
-      return response.ok;
+      if (!response.ok) {
+        let errorMessage = `API request failed: ${response.status}`;
+        const errorData = await response.json().catch(() => ({}));
+        errorMessage = errorData.error?.message || errorData.message || errorMessage;
+        return { ok: false, errorMessage };
+      }
+
+      return { ok: true };
     } catch (error) {
       console.error('API key test failed:', error);
-      return false;
+      return { ok: false, errorMessage: error.message || "API key test failed." };
     }
   }
 }

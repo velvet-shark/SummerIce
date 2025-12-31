@@ -23,13 +23,18 @@ export const CONFIG = {
   },
 
   // LLM Provider configurations
+  // Verify model IDs against provider docs before changing:
+  // - https://platform.openai.com/docs/models
+  // - https://platform.claude.com/docs/en/about-claude/models/overview
+  // - https://ai.google.dev/gemini-api/docs/models
+  // - https://docs.x.ai/docs/models
   LLM_PROVIDERS: {
     OPENAI: {
       id: "openai",
       name: "OpenAI",
       models: {
-        "gpt-4o-mini": { name: "GPT-4o Mini", maxTokens: 4096 },
-        "gpt-4.1-mini": { name: "GPT-4.1 Mini", maxTokens: 4096 }
+        "gpt-5-mini": { name: "GPT-5 Mini", maxTokens: 8192 },
+        "gpt-5-nano": { name: "GPT-5 Nano", maxTokens: 4096 }
       },
       apiUrl: "https://api.openai.com/v1/chat/completions",
       temperature: 0.7,
@@ -39,7 +44,7 @@ export const CONFIG = {
       id: "anthropic",
       name: "Anthropic",
       models: {
-        "claude-3-5-haiku-20241022": { name: "Claude Haiku 3.5", maxTokens: 8192 }
+        "claude-haiku-4-5-20251001": { name: "Claude Haiku 4.5", maxTokens: 8192 }
       },
       apiUrl: "https://api.anthropic.com/v1/messages",
       keyPrefix: "sk-ant-"
@@ -48,7 +53,7 @@ export const CONFIG = {
       id: "gemini",
       name: "Google Gemini",
       models: {
-        "gemini-2.5-flash-preview-05-20": { name: "Gemini 2.5 Flash Preview", maxTokens: 8192 }
+        "gemini-3-flash-preview": { name: "Gemini 3 Flash Preview", maxTokens: 8192 }
       },
       apiUrl: "https://generativelanguage.googleapis.com/v1beta/models",
       keyPrefix: "AI"
@@ -57,7 +62,7 @@ export const CONFIG = {
       id: "grok",
       name: "xAI Grok",
       models: {
-        "grok-beta": { name: "Grok Beta", maxTokens: 4096 }
+        "grok-4-fast-reasoning": { name: "Grok 4 Fast", maxTokens: 4096 }
       },
       apiUrl: "https://api.x.ai/v1/chat/completions",
       keyPrefix: "xai-"
@@ -67,7 +72,7 @@ export const CONFIG = {
   // Default settings
   DEFAULTS: {
     provider: "openai",
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini",
     summaryLength: "STANDARD",
     summaryFormat: "paragraph"
   },

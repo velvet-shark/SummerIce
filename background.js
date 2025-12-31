@@ -33,7 +33,7 @@ async function migrateUserSettings() {
       // If they have an API key but no provider set, assume OpenAI (legacy behavior)
       if (result.apiKey && !result.provider) {
         migrationData.provider = CONFIG.DEFAULTS.provider; // 'openai'
-        migrationData.model = CONFIG.DEFAULTS.model; // 'gpt-4o-mini'
+        migrationData.model = CONFIG.DEFAULTS.model; // default model fallback
         migrationData.summaryLength = CONFIG.DEFAULTS.summaryLength;
         migrationData.summaryFormat = CONFIG.DEFAULTS.summaryFormat;
         

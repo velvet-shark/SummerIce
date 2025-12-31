@@ -166,12 +166,15 @@ async function testApiKey() {
   testButton.textContent = "Testing...";
 
   try {
-    const isValid = await apiClient.testAPIKey(provider, apiKey, model);
+    const result = await apiClient.testAPIKey(provider, apiKey, model);
 
-    if (isValid) {
+    if (result.ok) {
       showMessage("API key is valid!", "green");
     } else {
-      showMessage("API key test failed. Please check your key and try again.", "red");
+      showMessage(
+        result.errorMessage || "API key test failed. Please check your key and try again.",
+        "red"
+      );
     }
   } catch (error) {
     console.error("API key test error:", error);

@@ -65,14 +65,14 @@ function updateProviderInfo(provider) {
   const providerDescriptions = {
     openai: {
       description:
-        "OpenAI provides cutting-edge language models including GPT-4o Mini and GPT-4.1 Mini. Great balance of quality and cost.",
+        "OpenAI provides the GPT-5 Mini and Nano models, balancing strong reasoning with low latency and cost.",
       linkText: "OpenAI API Keys",
       linkUrl: "https://platform.openai.com/api-keys",
       signupUrl: "https://platform.openai.com/signup"
     },
     anthropic: {
       description:
-        "Anthropic's Claude Haiku 3.5 is known for its safety, speed, and nuanced understanding. Excellent for detailed summaries.",
+        "Anthropic's Claude Sonnet 4.5 pairs fast responses with deeper reasoning and strong safety defaults for nuanced summaries.",
       linkText: "Anthropic Console",
       linkUrl: "https://console.anthropic.com/",
       signupUrl: "https://console.anthropic.com/"
@@ -86,7 +86,7 @@ function updateProviderInfo(provider) {
     },
     grok: {
       description:
-        "xAI's Grok model offers a unique perspective and real-time information access. Newer but innovative approach.",
+        "xAI's Grok 4 Fast offers fresh reasoning with competitive latency and web-native context updates.",
       linkText: "xAI Console",
       linkUrl: "https://console.x.ai/",
       signupUrl: "https://console.x.ai/"
