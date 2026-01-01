@@ -6,7 +6,13 @@ const apiClient = new APIClient();
 document.addEventListener("DOMContentLoaded", function () {
   initializeSettings();
   setupEventListeners();
+  displayVersion();
 });
+
+function displayVersion() {
+  const manifest = chrome.runtime.getManifest();
+  document.getElementById("version").textContent = `Version ${manifest.version}`;
+}
 
 function initializeSettings() {
   // Load current settings
