@@ -38,7 +38,7 @@ function setupEventListeners() {
   // Message listener for results
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === "summarizationResult") {
-      displaySummary(request.summary, request.fromCache);
+      displaySummary(request.summary, request.fromCache, request.sourceHint);
     } else if (request.type === "summarizationError") {
       displayError(request.error);
     }
@@ -63,18 +63,26 @@ function showLoading() {
   }, CONFIG.TIMEOUT_MS);
 }
 
-function displaySummary(summary, fromCache = false) {
+function displaySummary(summary, fromCache = false, sourceHint = null) {
   const summaryArea = document.getElementById("summary-area");
   const spinner = document.getElementById("spinner");
   const timeoutMessage = document.getElementById("timeout-message");
 
   if (summary) {
+    const indicators = [];
+    if (sourceHint) {
+      indicators.push(`<div class="source-indicator">🎥 ${sourceHint}</div>`);
+    }
+    if (fromCache) {
+      indicators.push('<div class="cache-indicator">📄 From cache</div>');
+    }
+
     summaryArea.style.display = "block";
     summaryArea.innerHTML = `
       <div class="summary-content">
         ${summary.replace(/\n/g, '<br>')}
       </div>
-      ${fromCache ? '<div class="cache-indicator">📄 From cache</div>' : ''}
+      ${indicators.join("")}
     `;
     summaryArea.style.color = ""; // Reset color
     spinner.style.display = "none";
@@ -93,5 +101,4 @@ function displayError(message) {
   spinner.style.display = "none";
   timeoutMessage.style.display = "none";
 }
-
 

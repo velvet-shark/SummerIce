@@ -1,6 +1,7 @@
 import { CONFIG } from './constants.js';
 import APIClient from './api-client.js';
 import SummaryCache from './cache.js';
+import { fetchYouTubeTranscript, isYouTubeUrl } from './modules/youtube.js';
 
 
 // Initialize modules
@@ -117,45 +118,75 @@ async function handleContentExtraction(htmlContent, url, title) {
     const settings = await apiClient.getSettings();
     
     // Check cache first
-    const cachedSummary = await cache.get(url, settings);
-    if (cachedSummary) {
+    const cachedEntry = await cache.get(url, settings);
+    if (cachedEntry?.summary) {
       chrome.runtime.sendMessage({ 
         type: "summarizationResult", 
-        summary: cachedSummary,
+        summary: cachedEntry.summary,
+        sourceHint: cachedEntry.sourceHint || null,
         fromCache: true 
       });
       return;
     }
 
-    // Create offscreen document for extraction
-    await createOffscreenDocument();
+    let extractedContent = null;
+    let extractedTitle = title;
+    let sourceHint = null;
 
-    // Extract content using offscreen document
-    const extractionResult = await new Promise((resolve) => {
-      chrome.runtime.sendMessage(
-        { type: "extractContent", htmlContent, url },
-        (result) => resolve(result)
-      );
-    });
+    if (isYouTubeUrl(url)) {
+      const preferredLanguage = chrome.i18n.getUILanguage();
+      const youtubeResult = await fetchYouTubeTranscript({
+        html: htmlContent,
+        url,
+        preferredLanguage
+      });
+      if (youtubeResult.success) {
+        extractedContent = youtubeResult.content;
+        extractedTitle = youtubeResult.title || title;
+        sourceHint = "YouTube transcript";
+      } else {
+        chrome.runtime.sendMessage({
+          type: "summarizationError",
+          error: CONFIG.ERRORS.YOUTUBE_TRANSCRIPT_UNAVAILABLE
+        });
+        closeOffscreenDocument();
+        return;
+      }
+    }
 
-    try {
+    if (!extractedContent) {
+      // Create offscreen document for extraction
+      await createOffscreenDocument();
+
+      // Extract content using offscreen document
+      const extractionResult = await new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { type: "extractContent", htmlContent, url },
+          (result) => resolve(result)
+        );
+      });
+
       if (!extractionResult || !extractionResult.success) {
         throw new Error(extractionResult?.error || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED);
       }
 
-      const extractedContent = extractionResult.content;
+      extractedContent = extractionResult.content;
+      extractedTitle = extractionResult.title || title;
+    }
 
+    try {
       // Generate summary using API
       const summary = await apiClient.callAPI(extractedContent);
       
       // Cache the result
-      await cache.set(url, settings, summary);
+      await cache.set(url, settings, summary, sourceHint);
 
       // Send result to popup
       chrome.runtime.sendMessage({ 
         type: "summarizationResult", 
         summary: summary,
-        title: title,
+        title: extractedTitle,
+        sourceHint: sourceHint,
         fromCache: false 
       });
 

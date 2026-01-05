@@ -29,7 +29,7 @@ const filesToCopy = [
   "style.css"
 ];
 
-const directoriesToCopy = ["images"];
+const directoriesToCopy = ["images", "modules"];
 
 const vendorFiles = [
   {

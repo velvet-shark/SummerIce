@@ -12,7 +12,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     
     const bodyText = document.body.innerText || document.body.textContent || '';
-    if (bodyText.length < 500) {
+    const hostname = window.location.hostname.toLowerCase();
+    const isYouTube = hostname === "youtu.be" || hostname.endsWith("youtube.com");
+    if (!isYouTube && bodyText.length < 500) {
       sendResponse({ 
         success: false, 
         error: "Page content too short to summarize" 

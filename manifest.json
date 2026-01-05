@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SummerIce ☀️🧊 - Page Summarizer",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Summarize articles quickly with multiple AI providers (OpenAI, Anthropic, Gemini, Grok).",
   "permissions": [
     "activeTab", 
@@ -12,7 +12,10 @@
     "https://api.openai.com/*",
     "https://api.anthropic.com/*",
     "https://generativelanguage.googleapis.com/*",
-    "https://api.x.ai/*"
+    "https://api.x.ai/*",
+    "https://*.youtube.com/*",
+    "https://youtu.be/*",
+    "https://www.youtube-nocookie.com/*"
   ],
   "background": {
     "service_worker": "background.js",

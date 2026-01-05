@@ -144,6 +144,15 @@ a:focus {
   gap: 5px;
 }
 
+.source-indicator {
+  font-size: 12px;
+  color: #5d6d7e;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .error-message {
   color: #e74c3c;
   font-weight: 500;

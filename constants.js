@@ -9,6 +9,15 @@ export const CONFIG = {
   // Content extraction constants
   MIN_CONTENT_LENGTH: 500,
   MAX_CONTENT_LENGTH: 50000,
+  CHUNKING: {
+    TOKEN_CHAR_RATIO: 4,
+    OUTPUT_TOKEN_RESERVE: 1200,
+    PROMPT_TOKEN_OVERHEAD: 600,
+    MIN_CONTENT_TOKENS: 800,
+    MAX_CHUNKS: 12,
+    OVERLAP_RATIO: 0.08,
+    OVERLAP_MAX_CHARS: 1200
+  },
 
   // Summary options
   SUMMARY_LENGTHS: {
@@ -86,7 +95,9 @@ export const CONFIG = {
     API_CALL_FAILED: "Failed to generate summary. Please try again.",
     TIMEOUT: "Summary generation timed out. Please try again.",
     UNSUPPORTED_PAGE: "Cannot summarize this page. Try a different website.",
-    NETWORK_ERROR: "Network error. Please check your connection and try again."
+    NETWORK_ERROR: "Network error. Please check your connection and try again.",
+    YOUTUBE_TRANSCRIPT_UNAVAILABLE:
+      "No captions or transcript were found for this video. SummerIce can only summarize YouTube videos when subtitles are available."
   }
 };
 
