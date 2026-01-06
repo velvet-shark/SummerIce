@@ -95,9 +95,7 @@ export const CONFIG = {
     API_CALL_FAILED: "Failed to generate summary. Please try again.",
     TIMEOUT: "Summary generation timed out. Please try again.",
     UNSUPPORTED_PAGE: "Cannot summarize this page. Try a different website.",
-    NETWORK_ERROR: "Network error. Please check your connection and try again.",
-    YOUTUBE_TRANSCRIPT_UNAVAILABLE:
-      "No captions or transcript were found for this video. SummerIce can only summarize YouTube videos when subtitles are available."
+    NETWORK_ERROR: "Network error. Please check your connection and try again."
   }
 };
 

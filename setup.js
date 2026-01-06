@@ -1,4 +1,7 @@
 import { CONFIG, getProviderConfig } from "./constants.js";
+import APIClient from "./api-client.js";
+
+const apiClient = new APIClient();
 
 document.addEventListener("DOMContentLoaded", function () {
   initializeSetup();
@@ -119,44 +122,87 @@ function updateProviderInfo(provider) {
   }
 }
 
-function saveSetup() {
+async function saveSetup() {
   const provider = document.getElementById("provider").value;
   const model = document.getElementById("model").value;
   const apiKey = document.getElementById("apiKey").value;
+  const submitButton = document.getElementById("setupForm").querySelector('button[type="submit"]');
+  const errorDisplay = document.getElementById("setupError");
 
   if (!apiKey.trim()) {
-    alert("Please enter your API key");
+    showSetupError("Please enter your API key");
     return;
   }
 
-  // Hide the form
-  document.getElementById("setupForm").style.display = "none";
+  // Disable button and show loading state
+  submitButton.disabled = true;
+  submitButton.textContent = "Validating...";
+  hideSetupError();
 
-  // Show success message
-  const contentElement = document.getElementById("content");
-  const successMessage = document.createElement("div");
-  successMessage.innerHTML = `
-    <h3 style="color: green;">Setup Complete!</h3>
-    <p>Your ${getProviderConfig(provider).name} API key has been saved securely in your browser.</p>
-    <p>You can now summarize articles by:</p>
-    <ul>
-      <li>Clicking the SummerIce extension icon</li>
-      <li>Pressing <strong>Ctrl+Shift+Y</strong> (Windows) or <strong>Cmd+Shift+Y</strong> (Mac)</li>
-    </ul>
-    <p>You can change your AI provider or settings anytime by visiting the Settings page.</p>
-    <p style="margin-top: 20px;"><em>It is safe to close this tab now.</em></p>
-  `;
-  contentElement.appendChild(successMessage);
+  try {
+    // Validate the API key
+    const result = await apiClient.testAPIKey(provider, apiKey, model);
 
-  // Save all settings
-  const settings = {
-    provider,
-    model,
-    apiKey,
-    summaryLength: CONFIG.DEFAULTS.summaryLength,
-    summaryFormat: CONFIG.DEFAULTS.summaryFormat
-  };
+    if (!result.ok) {
+      showSetupError(result.errorMessage || "API key is invalid. Please check your key and try again.");
+      return;
+    }
 
-  chrome.storage.local.set(settings, function () {
-  });
+    // Hide the form
+    document.getElementById("setupForm").style.display = "none";
+
+    // Show success message
+    const contentElement = document.getElementById("content");
+    const successMessage = document.createElement("div");
+    successMessage.innerHTML = `
+      <h3 style="color: green;">Setup Complete!</h3>
+      <p>Your ${getProviderConfig(provider).name} API key has been saved securely in your browser.</p>
+      <p>You can now summarize articles by:</p>
+      <ul>
+        <li>Clicking the SummerIce extension icon</li>
+        <li>Pressing <strong>Ctrl+Shift+Y</strong> (Windows) or <strong>Cmd+Shift+Y</strong> (Mac)</li>
+      </ul>
+      <p>You can change your AI provider or settings anytime by visiting the Settings page.</p>
+      <p style="margin-top: 20px;"><em>It is safe to close this tab now.</em></p>
+    `;
+    contentElement.appendChild(successMessage);
+
+    // Save all settings
+    const settings = {
+      provider,
+      model,
+      apiKey,
+      summaryLength: CONFIG.DEFAULTS.summaryLength,
+      summaryFormat: CONFIG.DEFAULTS.summaryFormat
+    };
+
+    chrome.storage.local.set(settings, function () {
+    });
+  } catch (error) {
+    console.error("API key validation error:", error);
+    showSetupError("Error validating API key: " + error.message);
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = "Save & Start";
+  }
+}
+
+function showSetupError(message) {
+  let errorDisplay = document.getElementById("setupError");
+  if (!errorDisplay) {
+    errorDisplay = document.createElement("div");
+    errorDisplay.id = "setupError";
+    errorDisplay.style.cssText = "color: #e74c3c; background-color: #fdf2f2; border: 1px solid #fecaca; border-radius: 5px; padding: 10px; margin-bottom: 15px;";
+    const form = document.getElementById("setupForm");
+    form.insertBefore(errorDisplay, form.firstChild);
+  }
+  errorDisplay.textContent = message;
+  errorDisplay.style.display = "block";
+}
+
+function hideSetupError() {
+  const errorDisplay = document.getElementById("setupError");
+  if (errorDisplay) {
+    errorDisplay.style.display = "none";
+  }
 }

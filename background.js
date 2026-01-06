@@ -1,7 +1,6 @@
 import { CONFIG } from './constants.js';
 import APIClient from './api-client.js';
 import SummaryCache from './cache.js';
-import { fetchYouTubeTranscript, isYouTubeUrl } from './modules/youtube.js';
 
 
 // Initialize modules
@@ -120,74 +119,48 @@ async function handleContentExtraction(htmlContent, url, title) {
     // Check cache first
     const cachedEntry = await cache.get(url, settings);
     if (cachedEntry?.summary) {
-      chrome.runtime.sendMessage({ 
-        type: "summarizationResult", 
+      chrome.runtime.sendMessage({
+        type: "summarizationResult",
         summary: cachedEntry.summary,
-        sourceHint: cachedEntry.sourceHint || null,
-        fromCache: true 
+        fromCache: true
       });
       return;
     }
 
     let extractedContent = null;
     let extractedTitle = title;
-    let sourceHint = null;
 
-    if (isYouTubeUrl(url)) {
-      const preferredLanguage = chrome.i18n.getUILanguage();
-      const youtubeResult = await fetchYouTubeTranscript({
-        html: htmlContent,
-        url,
-        preferredLanguage
-      });
-      if (youtubeResult.success) {
-        extractedContent = youtubeResult.content;
-        extractedTitle = youtubeResult.title || title;
-        sourceHint = "YouTube transcript";
-      } else {
-        chrome.runtime.sendMessage({
-          type: "summarizationError",
-          error: CONFIG.ERRORS.YOUTUBE_TRANSCRIPT_UNAVAILABLE
-        });
-        closeOffscreenDocument();
-        return;
-      }
+    // Create offscreen document for extraction
+    await createOffscreenDocument();
+
+    // Extract content using offscreen document
+    const extractionResult = await new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { type: "extractContent", htmlContent, url },
+        (result) => resolve(result)
+      );
+    });
+
+    if (!extractionResult || !extractionResult.success) {
+      throw new Error(extractionResult?.error || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED);
     }
 
-    if (!extractedContent) {
-      // Create offscreen document for extraction
-      await createOffscreenDocument();
-
-      // Extract content using offscreen document
-      const extractionResult = await new Promise((resolve) => {
-        chrome.runtime.sendMessage(
-          { type: "extractContent", htmlContent, url },
-          (result) => resolve(result)
-        );
-      });
-
-      if (!extractionResult || !extractionResult.success) {
-        throw new Error(extractionResult?.error || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED);
-      }
-
-      extractedContent = extractionResult.content;
-      extractedTitle = extractionResult.title || title;
-    }
+    extractedContent = extractionResult.content;
+    extractedTitle = extractionResult.title || title;
 
     try {
       // Generate summary using API
       const summary = await apiClient.callAPI(extractedContent);
-      
+
       // Cache the result
-      await cache.set(url, settings, summary, sourceHint);
+      await cache.set(url, settings, summary);
 
       // Send result to popup
-      chrome.runtime.sendMessage({ 
-        type: "summarizationResult", 
+      chrome.runtime.sendMessage({
+        type: "summarizationResult",
         summary: summary,
         title: extractedTitle,
-        sourceHint: sourceHint,
-        fromCache: false 
+        fromCache: false
       });
 
     } catch (error) {

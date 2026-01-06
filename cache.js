@@ -65,12 +65,11 @@ class SummaryCache {
   }
 
   // Store summary in cache
-  async set(url, settings, summary, sourceHint = null) {
+  async set(url, settings, summary) {
     try {
       const cacheKey = this.generateCacheKey(url, settings);
       const cacheEntry = {
         summary: summary,
-        sourceHint: sourceHint,
         timestamp: Date.now(),
         url: url,
         settings: settings

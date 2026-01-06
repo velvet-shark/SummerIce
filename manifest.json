@@ -12,10 +12,7 @@
     "https://api.openai.com/*",
     "https://api.anthropic.com/*",
     "https://generativelanguage.googleapis.com/*",
-    "https://api.x.ai/*",
-    "https://*.youtube.com/*",
-    "https://youtu.be/*",
-    "https://www.youtube-nocookie.com/*"
+    "https://api.x.ai/*"
   ],
   "background": {
     "service_worker": "background.js",
