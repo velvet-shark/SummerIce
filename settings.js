@@ -11,13 +11,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
 function displayVersion() {
   const manifest = chrome.runtime.getManifest();
-  document.getElementById("version").textContent = `Version ${manifest.version}`;
+  document.getElementById("version").textContent =
+    `Version ${manifest.version}`;
 }
 
 function initializeSettings() {
   // Load current settings
   chrome.storage.local.get(
-    ["provider", "model", "apiKey", "summaryLength", "summaryFormat"],
+    [
+      "provider",
+      "model",
+      "apiKey",
+      "summaryLength",
+      "summaryFormat",
+      "youtubeTranscriptMode",
+    ],
     function (result) {
       const provider = result.provider || CONFIG.DEFAULTS.provider;
       const model = result.model || CONFIG.DEFAULTS.model;
@@ -34,15 +42,18 @@ function initializeSettings() {
       }
 
       // Set summary preferences
-      document.getElementById("summaryLength").value = result.summaryLength || CONFIG.DEFAULTS.summaryLength;
-      document.getElementById("summaryFormat").value = result.summaryFormat || CONFIG.DEFAULTS.summaryFormat;
+      document.getElementById("summaryLength").value =
+        result.summaryLength || CONFIG.DEFAULTS.summaryLength;
+      document.getElementById("summaryFormat").value =
+        result.summaryFormat || CONFIG.DEFAULTS.summaryFormat;
+      document.getElementById("youtubeTranscriptMode").value =
+        result.youtubeTranscriptMode || CONFIG.DEFAULTS.youtubeTranscriptMode;
 
       // Update API key help
       updateApiKeyHelp(provider);
-    }
+    },
   );
 }
-
 
 function setupEventListeners() {
   // Provider change event
@@ -54,10 +65,12 @@ function setupEventListeners() {
   });
 
   // Form submit event
-  document.getElementById("settingsForm").addEventListener("submit", function (event) {
-    event.preventDefault();
-    saveSettings();
-  });
+  document
+    .getElementById("settingsForm")
+    .addEventListener("submit", function (event) {
+      event.preventDefault();
+      saveSettings();
+    });
 
   // Test API key
   document.getElementById("testApiKey").addEventListener("click", function () {
@@ -110,20 +123,20 @@ function updateApiKeyHelp(provider) {
   const links = {
     openai: {
       text: "OpenAI API Keys",
-      url: "https://platform.openai.com/api-keys"
+      url: "https://platform.openai.com/api-keys",
     },
     anthropic: {
       text: "Anthropic Console",
-      url: "https://console.anthropic.com/"
+      url: "https://console.anthropic.com/",
     },
     gemini: {
       text: "Google AI Studio",
-      url: "https://aistudio.google.com/app/apikey"
+      url: "https://aistudio.google.com/app/apikey",
     },
     grok: {
       text: "xAI Console",
-      url: "https://console.x.ai/"
-    }
+      url: "https://console.x.ai/",
+    },
   };
 
   if (links[provider]) {
@@ -143,13 +156,17 @@ function saveSettings() {
   const apiKey = document.getElementById("apiKey").value;
   const summaryLength = document.getElementById("summaryLength").value;
   const summaryFormat = document.getElementById("summaryFormat").value;
+  const youtubeTranscriptMode = document.getElementById(
+    "youtubeTranscriptMode",
+  ).value;
 
   const settings = {
     provider,
     model,
     apiKey,
     summaryLength,
-    summaryFormat
+    summaryFormat,
+    youtubeTranscriptMode,
   };
 
   chrome.storage.local.set(settings, function () {
@@ -178,8 +195,9 @@ async function testApiKey() {
       showMessage("API key is valid!", "green");
     } else {
       showMessage(
-        result.errorMessage || "API key test failed. Please check your key and try again.",
-        "red"
+        result.errorMessage ||
+          "API key test failed. Please check your key and try again.",
+        "red",
       );
     }
   } catch (error) {
@@ -191,18 +209,17 @@ async function testApiKey() {
   }
 }
 
-
 function showMessage(text, type) {
   const messageElement = document.getElementById("message");
-  
+
   // Clear existing classes
   messageElement.className = "message-display";
-  
+
   // Add appropriate class and show
   messageElement.classList.add(type === "green" ? "success" : "error");
   messageElement.textContent = text;
   messageElement.style.display = "block";
-  
+
   // Auto-hide after 5 seconds
   setTimeout(() => {
     messageElement.style.display = "none";

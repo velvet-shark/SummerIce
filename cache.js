@@ -1,4 +1,4 @@
-import { CONFIG } from './constants.js';
+import { CONFIG } from "./constants.js";
 
 class SummaryCache {
   constructor() {
@@ -7,9 +7,17 @@ class SummaryCache {
 
   // Generate cache key from URL and settings
   generateCacheKey(url, settings) {
-    const { provider, model, summaryLength, summaryFormat } = settings;
-    const settingsHash = btoa(`${provider}-${model}-${summaryLength}-${summaryFormat}`);
-    
+    const {
+      provider,
+      model,
+      summaryLength,
+      summaryFormat,
+      youtubeTranscriptMode,
+    } = settings;
+    const settingsHash = btoa(
+      `${provider}-${model}-${summaryLength}-${summaryFormat}-${youtubeTranscriptMode || "auto"}`,
+    );
+
     // Create a proper hash of the full URL to avoid collisions
     const urlHash = this.hashString(url);
     return `summary_${urlHash}_${settingsHash}`;
@@ -19,13 +27,13 @@ class SummaryCache {
   hashString(str) {
     let hash = 0;
     if (str.length === 0) return hash;
-    
+
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
-    
+
     // Convert to positive string and limit length for storage
     return Math.abs(hash).toString(36).slice(0, 12);
   }
@@ -34,11 +42,11 @@ class SummaryCache {
   async get(url, settings) {
     try {
       const cacheKey = this.generateCacheKey(url, settings);
-      
+
       return new Promise((resolve) => {
         this.storage.get([cacheKey], (result) => {
           const cached = result[cacheKey];
-          
+
           if (!cached) {
             resolve(null);
             return;
@@ -46,8 +54,9 @@ class SummaryCache {
 
           // Check if cache entry has expired
           const now = Date.now();
-          const expiresAt = cached.timestamp + (CONFIG.CACHE_TTL_HOURS * 60 * 60 * 1000);
-          
+          const expiresAt =
+            cached.timestamp + CONFIG.CACHE_TTL_HOURS * 60 * 60 * 1000;
+
           if (now > expiresAt) {
             // Cache expired, remove it
             this.storage.remove([cacheKey]);
@@ -59,7 +68,7 @@ class SummaryCache {
         });
       });
     } catch (error) {
-      console.error('Cache get error:', error);
+      console.error("Cache get error:", error);
       return null;
     }
   }
@@ -72,21 +81,20 @@ class SummaryCache {
         summary: summary,
         timestamp: Date.now(),
         url: url,
-        settings: settings
+        settings: settings,
       };
-
 
       return new Promise((resolve) => {
         this.storage.set({ [cacheKey]: cacheEntry }, () => {
           if (chrome.runtime.lastError) {
-            console.error('Cache set error:', chrome.runtime.lastError);
+            console.error("Cache set error:", chrome.runtime.lastError);
           } else {
           }
           resolve();
         });
       });
     } catch (error) {
-      console.error('Cache set error:', error);
+      console.error("Cache set error:", error);
     }
   }
 
@@ -100,7 +108,7 @@ class SummaryCache {
           const expiredThreshold = CONFIG.CACHE_TTL_HOURS * 60 * 60 * 1000;
 
           for (const [key, value] of Object.entries(items)) {
-            if (key.startsWith('summary_') && value.timestamp) {
+            if (key.startsWith("summary_") && value.timestamp) {
               if (now - value.timestamp > expiredThreshold) {
                 keysToRemove.push(key);
               }
@@ -117,7 +125,7 @@ class SummaryCache {
         });
       });
     } catch (error) {
-      console.error('Cache cleanup error:', error);
+      console.error("Cache cleanup error:", error);
     }
   }
 
@@ -126,8 +134,10 @@ class SummaryCache {
     try {
       return new Promise((resolve) => {
         this.storage.get(null, (items) => {
-          const summaryKeys = Object.keys(items).filter(key => key.startsWith('summary_'));
-          
+          const summaryKeys = Object.keys(items).filter((key) =>
+            key.startsWith("summary_"),
+          );
+
           if (summaryKeys.length > 0) {
             this.storage.remove(summaryKeys, () => {
               resolve();
@@ -138,7 +148,7 @@ class SummaryCache {
         });
       });
     } catch (error) {
-      console.error('Cache clear error:', error);
+      console.error("Cache clear error:", error);
     }
   }
 
@@ -147,10 +157,12 @@ class SummaryCache {
     try {
       return new Promise((resolve) => {
         this.storage.get(null, (items) => {
-          const summaryEntries = Object.entries(items).filter(([key]) => key.startsWith('summary_'));
+          const summaryEntries = Object.entries(items).filter(([key]) =>
+            key.startsWith("summary_"),
+          );
           const now = Date.now();
           const expiredThreshold = CONFIG.CACHE_TTL_HOURS * 60 * 60 * 1000;
-          
+
           let totalEntries = summaryEntries.length;
           let expiredEntries = 0;
           let totalSize = 0;
@@ -167,18 +179,18 @@ class SummaryCache {
             activeEntries: totalEntries - expiredEntries,
             expiredEntries,
             totalSizeBytes: totalSize,
-            cacheTTLHours: CONFIG.CACHE_TTL_HOURS
+            cacheTTLHours: CONFIG.CACHE_TTL_HOURS,
           });
         });
       });
     } catch (error) {
-      console.error('Cache stats error:', error);
+      console.error("Cache stats error:", error);
       return {
         totalEntries: 0,
         activeEntries: 0,
         expiredEntries: 0,
         totalSizeBytes: 0,
-        cacheTTLHours: CONFIG.CACHE_TTL_HOURS
+        cacheTTLHours: CONFIG.CACHE_TTL_HOURS,
       };
     }
   }

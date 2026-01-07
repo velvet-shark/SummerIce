@@ -1,4 +1,4 @@
-import { CONFIG } from './constants.js';
+import { CONFIG } from "./constants.js";
 
 window.onload = function () {
   initializePopup();
@@ -9,16 +9,20 @@ function initializePopup() {
   chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     if (tabs[0]) {
       // Check if we can access the tab
-      chrome.tabs.sendMessage(tabs[0].id, { type: "ping" }, function (response) {
-        if (chrome.runtime.lastError) {
-          // Can't access this tab
-          displayError(CONFIG.ERRORS.UNSUPPORTED_PAGE);
-        } else {
-          // Tab accessible, proceed with content extraction
-          showLoading();
-          chrome.tabs.sendMessage(tabs[0].id, { type: "extractContent" });
-        }
-      });
+      chrome.tabs.sendMessage(
+        tabs[0].id,
+        { type: "ping" },
+        function (response) {
+          if (chrome.runtime.lastError) {
+            // Can't access this tab
+            displayError(CONFIG.ERRORS.UNSUPPORTED_PAGE);
+          } else {
+            // Tab accessible, proceed with content extraction
+            showLoading();
+            chrome.tabs.sendMessage(tabs[0].id, { type: "extractContent" });
+          }
+        },
+      );
     } else {
       displayError("No active tab found.");
     }
@@ -30,10 +34,12 @@ function initializePopup() {
 
 function setupEventListeners() {
   // Settings link
-  document.getElementById("settingsLink").addEventListener("click", function (event) {
-    event.preventDefault();
-    chrome.runtime.openOptionsPage();
-  });
+  document
+    .getElementById("settingsLink")
+    .addEventListener("click", function (event) {
+      event.preventDefault();
+      chrome.runtime.openOptionsPage();
+    });
 
   // Message listener for results
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -69,13 +75,15 @@ function displaySummary(summary, fromCache = false) {
   const timeoutMessage = document.getElementById("timeout-message");
 
   if (summary) {
-    const cacheIndicator = fromCache ? '<div class="cache-indicator">📄 From cache</div>' : '';
+    const cacheIndicator = fromCache
+      ? '<div class="cache-indicator">📄 From cache</div>'
+      : "";
 
     summaryArea.style.display = "block";
     summaryArea.innerHTML = `
       ${cacheIndicator}
       <div class="summary-content">
-        ${summary.replace(/\n/g, '<br>')}
+        ${summary.replace(/\n/g, "<br>")}
       </div>
     `;
     summaryArea.style.color = ""; // Reset color
@@ -95,4 +103,3 @@ function displayError(message) {
   spinner.style.display = "none";
   timeoutMessage.style.display = "none";
 }
-

@@ -1,27 +1,34 @@
-import { CONFIG } from './constants.js';
+import { CONFIG } from "./constants.js";
 
 // Check if dependencies are loaded and provide fallbacks
 function checkDependencies() {
   // Readability should be available globally from the script tag
-  if (typeof window.Readability === 'undefined') {
+  if (typeof window.Readability === "undefined") {
     return false;
   }
-  
-  // DOMPurify should be available globally from the script tag  
-  if (typeof window.DOMPurify === 'undefined') {
+
+  // DOMPurify should be available globally from the script tag
+  if (typeof window.DOMPurify === "undefined") {
     // Create minimal fallback
     window.DOMPurify = {
       sanitize: (html, options) => {
-        if (options && options.ALLOWED_TAGS && options.ALLOWED_TAGS.length === 0) {
+        if (
+          options &&
+          options.ALLOWED_TAGS &&
+          options.ALLOWED_TAGS.length === 0
+        ) {
           // Strip all HTML tags
-          return html.replace(/<[^>]*>/g, '');
+          return html.replace(/<[^>]*>/g, "");
         }
         // Basic sanitization - remove script tags
-        return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-      }
+        return html.replace(
+          /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+          "",
+        );
+      },
     };
   }
-  
+
   return true;
 }
 
@@ -47,12 +54,14 @@ const NON_CONTENT_SELECTORS = [
   ".promo",
   ".advert",
   ".ads",
-  ".sponsored"
+  ".sponsored",
 ];
 
 function stripNonContentElements(doc) {
   try {
-    doc.querySelectorAll(NON_CONTENT_SELECTORS.join(",")).forEach((node) => node.remove());
+    doc
+      .querySelectorAll(NON_CONTENT_SELECTORS.join(","))
+      .forEach((node) => node.remove());
   } catch (error) {
     // Best-effort cleanup; ignore failures to keep extraction resilient.
   }
@@ -83,21 +92,24 @@ function sanitizeExtractedHtml(html) {
         "blockquote",
         "pre",
         "code",
-        "br"
+        "br",
       ],
-      ALLOWED_ATTR: []
+      ALLOWED_ATTR: [],
     });
   }
 
   // Basic sanitization fallback.
-  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+  return html.replace(
+    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+    "",
+  );
 }
 
 function extractTextFromHtml(html) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "text/html");
   const blocks = doc.body.querySelectorAll(
-    "h1, h2, h3, h4, h5, h6, p, li, blockquote, pre"
+    "h1, h2, h3, h4, h5, h6, p, li, blockquote, pre",
   );
   const parts = [];
 
@@ -126,19 +138,19 @@ function extractTextFromNode(node) {
 function extractWithReadability(htmlContent, url) {
   try {
     // Check if Readability is available
-    if (typeof window.Readability === 'undefined') {
-      throw new Error('Readability not available');
+    if (typeof window.Readability === "undefined") {
+      throw new Error("Readability not available");
     }
-    
+
     // Create a DOM document from the HTML
     const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlContent, 'text/html');
+    const doc = parser.parseFromString(htmlContent, "text/html");
 
     stripNonContentElements(doc);
-    
+
     // Clone to avoid mutating
     const docClone = doc.cloneNode(true);
-    
+
     // Initialize Readability
     const reader = new window.Readability(docClone, {
       url: url,
@@ -147,25 +159,25 @@ function extractWithReadability(htmlContent, url) {
       nbTopCandidates: 5,
       charThreshold: 500,
       classesToPreserve: [],
-      keepClasses: false
+      keepClasses: false,
     });
-    
+
     // Parse the article
     const article = reader.parse();
-    
+
     if (!article) {
-      throw new Error('Readability failed to parse article');
+      throw new Error("Readability failed to parse article");
     }
-    
+
     const sanitizedHtml = sanitizeExtractedHtml(article.content || "");
     const structuredText = extractTextFromHtml(sanitizedHtml);
-    const textContent = structuredText || normalizeWhitespace(article.textContent || "");
+    const textContent =
+      structuredText || normalizeWhitespace(article.textContent || "");
     return {
-      title: article.title || '',
+      title: article.title || "",
       content: textContent,
-      success: true
+      success: true,
     };
-    
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -178,7 +190,7 @@ function extractWithTextDensity(htmlContent) {
     stripNonContentElements(doc);
 
     const candidates = Array.from(
-      doc.querySelectorAll("article, main, [role='main'], section, div")
+      doc.querySelectorAll("article, main, [role='main'], section, div"),
     );
 
     let bestCandidate = null;
@@ -188,10 +200,13 @@ function extractWithTextDensity(htmlContent) {
       const text = extractTextFromNode(candidate);
       if (text.length < 200) return;
 
-      const linkTextLength = Array.from(candidate.querySelectorAll("a")).reduce((sum, link) => {
-        const linkText = link.innerText || link.textContent || "";
-        return sum + linkText.length;
-      }, 0);
+      const linkTextLength = Array.from(candidate.querySelectorAll("a")).reduce(
+        (sum, link) => {
+          const linkText = link.innerText || link.textContent || "";
+          return sum + linkText.length;
+        },
+        0,
+      );
 
       const linkDensity = linkTextLength / Math.max(text.length, 1);
       const paragraphCount = candidate.querySelectorAll("p").length;
@@ -215,7 +230,7 @@ function extractWithTextDensity(htmlContent) {
     return {
       title: doc.title || "",
       content: content,
-      success: true
+      success: true,
     };
   } catch (error) {
     return { success: false, error: error.message };
@@ -227,47 +242,46 @@ function extractWithBasicSelectors(htmlContent, url) {
   try {
     // Create a DOM document from the HTML
     const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlContent, 'text/html');
+    const doc = parser.parseFromString(htmlContent, "text/html");
     stripNonContentElements(doc);
-    
+
     // Try common article selectors as fallback
     const selectors = [
-      'article',
+      "article",
       '[role="main"]',
-      'main',
-      '.article-content',
-      '.post-content',
-      '.entry-content',
-      '.content-body',
-      '#main-content'
+      "main",
+      ".article-content",
+      ".post-content",
+      ".entry-content",
+      ".content-body",
+      "#main-content",
     ];
-    
+
     for (const selector of selectors) {
       const element = doc.querySelector(selector);
       if (element) {
         const textContent = extractTextFromNode(element);
         if (textContent && textContent.length > 500) {
           return {
-            title: doc.title || '',
+            title: doc.title || "",
             content: textContent,
-            success: true
+            success: true,
           };
         }
       }
     }
-    
+
     // If no specific selectors work, try body content
     const bodyText = extractTextFromNode(doc.body);
     if (bodyText && bodyText.length > 500) {
       return {
-        title: doc.title || '',
+        title: doc.title || "",
         content: bodyText,
-        success: true
+        success: true,
       };
     }
-    
-    throw new Error('No suitable content found with basic selectors');
-    
+
+    throw new Error("No suitable content found with basic selectors");
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -279,17 +293,21 @@ async function extractContent(htmlContent, url) {
   if (!htmlContent || htmlContent.length < CONFIG.MIN_CONTENT_LENGTH) {
     return {
       success: false,
-      error: CONFIG.ERRORS.CONTENT_TOO_SHORT
+      error: CONFIG.ERRORS.CONTENT_TOO_SHORT,
     };
   }
-  
+
   // Check dependencies and set up fallbacks
   checkDependencies();
-  
+
   // Try Readability first
   let result = extractWithReadability(htmlContent, url);
-  
-  if (!result.success || !result.content || result.content.length < CONFIG.MIN_CONTENT_LENGTH) {
+
+  if (
+    !result.success ||
+    !result.content ||
+    result.content.length < CONFIG.MIN_CONTENT_LENGTH
+  ) {
     result = extractWithTextDensity(htmlContent);
   }
 
@@ -297,22 +315,23 @@ async function extractContent(htmlContent, url) {
   if (!result.success) {
     result = extractWithBasicSelectors(htmlContent, url);
   }
-  
+
   // Final validation of extracted content
   if (result.success) {
     if (result.content.length < CONFIG.MIN_CONTENT_LENGTH) {
       return {
         success: false,
-        error: CONFIG.ERRORS.CONTENT_TOO_SHORT
+        error: CONFIG.ERRORS.CONTENT_TOO_SHORT,
       };
     }
-    
+
     // Truncate if too long
     if (result.content.length > CONFIG.MAX_CONTENT_LENGTH) {
-      result.content = result.content.substring(0, CONFIG.MAX_CONTENT_LENGTH) + '...';
+      result.content =
+        result.content.substring(0, CONFIG.MAX_CONTENT_LENGTH) + "...";
     }
   }
-  
+
   return result;
 }
 
@@ -327,7 +346,7 @@ if (typeof chrome !== "undefined" && chrome?.runtime?.onMessage?.addListener) {
         .catch((error) => {
           sendResponse({
             success: false,
-            error: error.message || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED
+            error: error.message || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED,
           });
         });
 
@@ -344,5 +363,5 @@ export {
   extractWithTextDensity,
   extractTextFromHtml,
   normalizeWhitespace,
-  stripNonContentElements
+  stripNonContentElements,
 };

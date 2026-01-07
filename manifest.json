@@ -12,7 +12,11 @@
     "https://api.openai.com/*",
     "https://api.anthropic.com/*",
     "https://generativelanguage.googleapis.com/*",
-    "https://api.x.ai/*"
+    "https://api.x.ai/*",
+    "https://youtube.com/*",
+    "https://www.youtube.com/*",
+    "https://m.youtube.com/*",
+    "https://youtu.be/*"
   ],
   "background": {
     "service_worker": "background.js",

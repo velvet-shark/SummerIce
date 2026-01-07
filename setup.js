@@ -25,10 +25,12 @@ function setupEventListeners() {
   });
 
   // Form submit event
-  document.getElementById("setupForm").addEventListener("submit", function (event) {
-    event.preventDefault();
-    saveSetup();
-  });
+  document
+    .getElementById("setupForm")
+    .addEventListener("submit", function (event) {
+      event.preventDefault();
+      saveSetup();
+    });
 }
 
 function updateModelOptions(provider) {
@@ -71,29 +73,29 @@ function updateProviderInfo(provider) {
         "OpenAI provides the GPT-5 Mini and Nano models, balancing strong reasoning with low latency and cost.",
       linkText: "OpenAI API Keys",
       linkUrl: "https://platform.openai.com/api-keys",
-      signupUrl: "https://platform.openai.com/signup"
+      signupUrl: "https://platform.openai.com/signup",
     },
     anthropic: {
       description:
         "Anthropic's Claude Sonnet 4.5 pairs fast responses with deeper reasoning and strong safety defaults for nuanced summaries.",
       linkText: "Anthropic Console",
       linkUrl: "https://console.anthropic.com/",
-      signupUrl: "https://console.anthropic.com/"
+      signupUrl: "https://console.anthropic.com/",
     },
     gemini: {
       description:
         "Google's Gemini 2.5 Flash Preview offers competitive performance with generous free tiers. Good for high-volume usage.",
       linkText: "Google AI Studio",
       linkUrl: "https://aistudio.google.com/app/apikey",
-      signupUrl: "https://aistudio.google.com/"
+      signupUrl: "https://aistudio.google.com/",
     },
     grok: {
       description:
         "xAI's Grok 4 Fast offers fresh reasoning with competitive latency and web-native context updates.",
       linkText: "xAI Console",
       linkUrl: "https://console.x.ai/",
-      signupUrl: "https://console.x.ai/"
-    }
+      signupUrl: "https://console.x.ai/",
+    },
   };
 
   const info = providerDescriptions[provider];
@@ -126,7 +128,9 @@ async function saveSetup() {
   const provider = document.getElementById("provider").value;
   const model = document.getElementById("model").value;
   const apiKey = document.getElementById("apiKey").value;
-  const submitButton = document.getElementById("setupForm").querySelector('button[type="submit"]');
+  const submitButton = document
+    .getElementById("setupForm")
+    .querySelector('button[type="submit"]');
   const errorDisplay = document.getElementById("setupError");
 
   if (!apiKey.trim()) {
@@ -144,7 +148,10 @@ async function saveSetup() {
     const result = await apiClient.testAPIKey(provider, apiKey, model);
 
     if (!result.ok) {
-      showSetupError(result.errorMessage || "API key is invalid. Please check your key and try again.");
+      showSetupError(
+        result.errorMessage ||
+          "API key is invalid. Please check your key and try again.",
+      );
       return;
     }
 
@@ -173,11 +180,11 @@ async function saveSetup() {
       model,
       apiKey,
       summaryLength: CONFIG.DEFAULTS.summaryLength,
-      summaryFormat: CONFIG.DEFAULTS.summaryFormat
+      summaryFormat: CONFIG.DEFAULTS.summaryFormat,
+      youtubeTranscriptMode: CONFIG.DEFAULTS.youtubeTranscriptMode,
     };
 
-    chrome.storage.local.set(settings, function () {
-    });
+    chrome.storage.local.set(settings, function () {});
   } catch (error) {
     console.error("API key validation error:", error);
     showSetupError("Error validating API key: " + error.message);
@@ -192,7 +199,8 @@ function showSetupError(message) {
   if (!errorDisplay) {
     errorDisplay = document.createElement("div");
     errorDisplay.id = "setupError";
-    errorDisplay.style.cssText = "color: #e74c3c; background-color: #fdf2f2; border: 1px solid #fecaca; border-radius: 5px; padding: 10px; margin-bottom: 15px;";
+    errorDisplay.style.cssText =
+      "color: #e74c3c; background-color: #fdf2f2; border: 1px solid #fecaca; border-radius: 5px; padding: 10px; margin-bottom: 15px;";
     const form = document.getElementById("setupForm");
     form.insertBefore(errorDisplay, form.firstChild);
   }

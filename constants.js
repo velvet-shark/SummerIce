@@ -16,19 +16,19 @@ export const CONFIG = {
     MIN_CONTENT_TOKENS: 800,
     MAX_CHUNKS: 12,
     OVERLAP_RATIO: 0.08,
-    OVERLAP_MAX_CHARS: 1200
+    OVERLAP_MAX_CHARS: 1200,
   },
 
   // Summary options
   SUMMARY_LENGTHS: {
     BRIEF: { words: 100, label: "Brief" },
     STANDARD: { words: 200, label: "Standard" },
-    DETAILED: { words: 400, label: "Detailed" }
+    DETAILED: { words: 400, label: "Detailed" },
   },
 
   SUMMARY_FORMATS: {
     PARAGRAPH: "paragraph",
-    BULLETS: "bullets"
+    BULLETS: "bullets",
   },
 
   // LLM Provider configurations
@@ -43,39 +43,45 @@ export const CONFIG = {
       name: "OpenAI",
       models: {
         "gpt-5-mini": { name: "GPT-5 Mini", maxTokens: 8192 },
-        "gpt-5-nano": { name: "GPT-5 Nano", maxTokens: 4096 }
+        "gpt-5-nano": { name: "GPT-5 Nano", maxTokens: 4096 },
       },
       apiUrl: "https://api.openai.com/v1/chat/completions",
       temperature: 0.7,
-      keyPrefix: "sk-"
+      keyPrefix: "sk-",
     },
     ANTHROPIC: {
       id: "anthropic",
       name: "Anthropic",
       models: {
-        "claude-haiku-4-5-20251001": { name: "Claude Haiku 4.5", maxTokens: 8192 }
+        "claude-haiku-4-5-20251001": {
+          name: "Claude Haiku 4.5",
+          maxTokens: 8192,
+        },
       },
       apiUrl: "https://api.anthropic.com/v1/messages",
-      keyPrefix: "sk-ant-"
+      keyPrefix: "sk-ant-",
     },
     GEMINI: {
       id: "gemini",
       name: "Google Gemini",
       models: {
-        "gemini-3-flash-preview": { name: "Gemini 3 Flash Preview", maxTokens: 8192 }
+        "gemini-3-flash-preview": {
+          name: "Gemini 3 Flash Preview",
+          maxTokens: 8192,
+        },
       },
       apiUrl: "https://generativelanguage.googleapis.com/v1beta/models",
-      keyPrefix: "AI"
+      keyPrefix: "AI",
     },
     GROK: {
       id: "grok",
       name: "xAI Grok",
       models: {
-        "grok-4-fast-reasoning": { name: "Grok 4 Fast", maxTokens: 4096 }
+        "grok-4-fast-reasoning": { name: "Grok 4 Fast", maxTokens: 4096 },
       },
       apiUrl: "https://api.x.ai/v1/chat/completions",
-      keyPrefix: "xai-"
-    }
+      keyPrefix: "xai-",
+    },
   },
 
   // Default settings
@@ -83,20 +89,25 @@ export const CONFIG = {
     provider: "openai",
     model: "gpt-5-mini",
     summaryLength: "STANDARD",
-    summaryFormat: "paragraph"
+    summaryFormat: "paragraph",
+    youtubeTranscriptMode: "auto",
   },
 
   // Error messages
   ERRORS: {
     NO_API_KEY: "API key not found. Please configure your API key in settings.",
     INVALID_API_KEY: "Invalid API key format. Please check your API key.",
-    CONTENT_TOO_SHORT: "Page content is too short to summarize (minimum 500 characters).",
-    CONTENT_EXTRACTION_FAILED: "Could not extract readable content from this page.",
+    CONTENT_TOO_SHORT:
+      "Page content is too short to summarize (minimum 500 characters).",
+    CONTENT_EXTRACTION_FAILED:
+      "Could not extract readable content from this page.",
     API_CALL_FAILED: "Failed to generate summary. Please try again.",
     TIMEOUT: "Summary generation timed out. Please try again.",
     UNSUPPORTED_PAGE: "Cannot summarize this page. Try a different website.",
-    NETWORK_ERROR: "Network error. Please check your connection and try again."
-  }
+    NETWORK_ERROR: "Network error. Please check your connection and try again.",
+    YOUTUBE_TRANSCRIPT_UNAVAILABLE:
+      "No transcript available for this YouTube video.",
+  },
 };
 
 // Utility functions for configuration
@@ -110,19 +121,24 @@ export const validateApiKey = (providerId, apiKey) => {
   return apiKey.startsWith(provider.keyPrefix);
 };
 
-export const getSummaryPrompt = (content, length, format) => {
+export const getSummaryPrompt = (content, length, format, options = {}) => {
   const wordCount = CONFIG.SUMMARY_LENGTHS[length]?.words || 200;
+  const sourceType = options.sourceType || "article";
   const formatInstruction =
     format === "bullets"
       ? "Format the summary as clear bullet points."
       : "Format the summary in well-structured paragraphs.";
 
-  return `Provide a concise summary of the article below. The summary should be around ${wordCount} words and capture the essential information while preserving the original meaning and context. ${formatInstruction} Avoid including minor details or tangential information. The goal is to provide a quick, informative overview of the article's core content.
+  const subjectLabel = sourceType === "video" ? "video transcript" : "article";
+  const contentLabel = sourceType === "video" ? "Transcript" : "Article";
+  const titleLine = options.title ? `Title: ${options.title}\n` : "";
 
-Do not include any intro text, e.g. 'Here is a concise summary of the article', get straight to the summary.
+  return `Provide a concise summary of the ${subjectLabel} below. The summary should be around ${wordCount} words and capture the essential information while preserving the original meaning and context. ${formatInstruction} Avoid including minor details or tangential information. The goal is to provide a quick, informative overview of the ${subjectLabel}'s core content.
 
-Article:
+Do not include any intro text, e.g. 'Here is a concise summary', get straight to the summary.
+
+${contentLabel}:
 ---
-${content}
+${titleLine}${content}
 ---`;
 };
