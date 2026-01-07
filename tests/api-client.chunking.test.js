@@ -4,7 +4,9 @@ describe("APIClient chunking", () => {
   it("splits content into multiple chunks within size limits", () => {
     const client = new APIClient();
     const sentence = "This is a sentence about summarization.";
-    const content = Array.from({ length: 200 }).map(() => sentence).join(" ");
+    const content = Array.from({ length: 200 })
+      .map(() => sentence)
+      .join(" ");
     const chunks = client.splitContentIntoChunks(content, 400, 40);
 
     expect(chunks.length).toBeGreaterThan(1);
@@ -20,23 +22,32 @@ describe("APIClient chunking", () => {
 
     const providerConfig = {
       models: {
-        "test-model": { maxTokens: 2048 }
-      }
+        "test-model": { maxTokens: 2048 },
+      },
     };
 
     const settings = {
       model: "test-model",
       summaryLength: "STANDARD",
-      summaryFormat: "paragraph"
+      summaryFormat: "paragraph",
     };
 
     const calls = [];
-    client.requestSummary = async (prompt, callSettings, callProvider, maxTokens) => {
+    client.requestSummary = async (
+      prompt,
+      callSettings,
+      callProvider,
+      maxTokens,
+    ) => {
       calls.push({ prompt, maxTokens });
       return `summary-${calls.length}`;
     };
 
-    const result = await client.summarizeWithChunking(content, settings, providerConfig);
+    const result = await client.summarizeWithChunking(
+      content,
+      settings,
+      providerConfig,
+    );
 
     expect(calls.length).toBeGreaterThan(1);
     expect(calls[calls.length - 1].prompt).toContain("Section summaries");

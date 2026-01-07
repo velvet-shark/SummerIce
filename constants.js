@@ -107,38 +107,11 @@ export const CONFIG = {
     NETWORK_ERROR: "Network error. Please check your connection and try again.",
     YOUTUBE_TRANSCRIPT_UNAVAILABLE:
       "No transcript available for this YouTube video.",
+    NON_HTML_CONTENT: "Cannot process non-HTML content",
   },
 };
 
 // Utility functions for configuration
 export const getProviderConfig = (providerId) => {
   return CONFIG.LLM_PROVIDERS[providerId.toUpperCase()];
-};
-
-export const validateApiKey = (providerId, apiKey) => {
-  const provider = getProviderConfig(providerId);
-  if (!provider || !apiKey) return false;
-  return apiKey.startsWith(provider.keyPrefix);
-};
-
-export const getSummaryPrompt = (content, length, format, options = {}) => {
-  const wordCount = CONFIG.SUMMARY_LENGTHS[length]?.words || 200;
-  const sourceType = options.sourceType || "article";
-  const formatInstruction =
-    format === "bullets"
-      ? "Format the summary as clear bullet points."
-      : "Format the summary in well-structured paragraphs.";
-
-  const subjectLabel = sourceType === "video" ? "video transcript" : "article";
-  const contentLabel = sourceType === "video" ? "Transcript" : "Article";
-  const titleLine = options.title ? `Title: ${options.title}\n` : "";
-
-  return `Provide a concise summary of the ${subjectLabel} below. The summary should be around ${wordCount} words and capture the essential information while preserving the original meaning and context. ${formatInstruction} Avoid including minor details or tangential information. The goal is to provide a quick, informative overview of the ${subjectLabel}'s core content.
-
-Do not include any intro text, e.g. 'Here is a concise summary', get straight to the summary.
-
-${contentLabel}:
----
-${titleLine}${content}
----`;
 };

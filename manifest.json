@@ -3,11 +3,7 @@
   "name": "SummerIce ☀️🧊 - Page Summarizer",
   "version": "2.2.0",
   "description": "Summarize articles quickly with multiple AI providers (OpenAI, Anthropic, Gemini, Grok).",
-  "permissions": [
-    "activeTab", 
-    "storage",
-    "offscreen"
-  ],
+  "permissions": ["activeTab", "storage", "offscreen"],
   "host_permissions": [
     "https://api.openai.com/*",
     "https://api.anthropic.com/*",
@@ -57,7 +53,12 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["node_modules/@mozilla/readability/Readability.js", "node_modules/dompurify/dist/purify.min.js"],
+      "resources": [
+        "node_modules/@mozilla/readability/Readability.js",
+        "node_modules/dompurify/dist/purify.min.js",
+        "constants.js",
+        "modules/text-utils.js"
+      ],
       "matches": ["<all_urls>"]
     }
   ]

@@ -1,4 +1,116 @@
-import { CONFIG, getProviderConfig, getSummaryPrompt } from "./constants.js";
+import { CONFIG, getProviderConfig } from "./constants.js";
+import { loadSettings, saveSettings } from "./modules/settings-store.js";
+import {
+  buildChunkPrompt,
+  buildSynthesisPrompt,
+  getSummaryPrompt,
+} from "./modules/prompts.js";
+
+const DEFAULT_SYSTEM_PROMPT =
+  "You are a helpful assistant that creates concise, accurate summaries of articles.";
+
+const PROVIDER_ADAPTERS = {
+  openai: {
+    buildRequest: ({ prompt, model, maxTokens, providerConfig }) => {
+      const requestBody = {
+        model: model,
+        max_completion_tokens: maxTokens,
+        messages: [{ role: "user", content: prompt }],
+      };
+      const temperature = providerConfig.temperature;
+      if (!model.startsWith("gpt-5") && typeof temperature === "number") {
+        requestBody.temperature = temperature;
+      }
+      return requestBody;
+    },
+    headers: ({ apiKey }) => ({
+      Authorization: `Bearer ${apiKey}`,
+    }),
+    apiUrl: ({ providerConfig }) => providerConfig.apiUrl,
+    parseResponse: (data) => {
+      if (data.choices && data.choices.length > 0) {
+        return data.choices[0].message.content;
+      }
+      return null;
+    },
+  },
+  anthropic: {
+    buildRequest: ({ prompt, model, maxTokens }) => ({
+      model: model,
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: prompt }],
+      system: DEFAULT_SYSTEM_PROMPT,
+    }),
+    headers: ({ apiKey }) => ({
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    }),
+    apiUrl: ({ providerConfig }) => providerConfig.apiUrl,
+    parseResponse: (data) => {
+      if (data.content && data.content.length > 0) {
+        return data.content[0].text;
+      }
+      return null;
+    },
+  },
+  gemini: {
+    buildRequest: ({ prompt, model, maxTokens, providerConfig }) => ({
+      contents: [
+        {
+          parts: [{ text: prompt }],
+        },
+      ],
+      generationConfig: {
+        maxOutputTokens:
+          maxTokens || providerConfig.models[model]?.maxTokens || 8192,
+        temperature: 0.7,
+      },
+    }),
+    headers: () => ({}),
+    apiUrl: ({ providerConfig, model, apiKey }) =>
+      `${providerConfig.apiUrl}/${model}:generateContent?key=${apiKey}`,
+    parseResponse: (data) => {
+      if (data.candidates && data.candidates.length > 0) {
+        const candidate = data.candidates[0];
+        if (
+          candidate.content &&
+          candidate.content.parts &&
+          candidate.content.parts.length > 0
+        ) {
+          return candidate.content.parts[0].text;
+        }
+      }
+      return null;
+    },
+  },
+  grok: {
+    buildRequest: ({ prompt, model, maxTokens }) => ({
+      model: model,
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+    }),
+    headers: ({ apiKey }) => ({
+      Authorization: `Bearer ${apiKey}`,
+    }),
+    apiUrl: ({ providerConfig }) => providerConfig.apiUrl,
+    parseResponse: (data) => {
+      if (data.choices && data.choices.length > 0) {
+        return data.choices[0].message.content;
+      }
+      return null;
+    },
+  },
+};
+
+const getProviderAdapter = (provider) => {
+  const adapter = PROVIDER_ADAPTERS[provider];
+  if (!adapter) {
+    throw new Error(`Unsupported provider: ${provider}`);
+  }
+  return adapter;
+};
 
 class APIClient {
   constructor() {
@@ -7,131 +119,16 @@ class APIClient {
 
   // Get API configuration for a provider
   async getSettings() {
-    return new Promise((resolve) => {
-      chrome.storage.local.get(
-        [
-          "provider",
-          "model",
-          "apiKey",
-          "summaryLength",
-          "summaryFormat",
-          "youtubeTranscriptMode",
-        ],
-        (result) => {
-          const provider = result.provider || CONFIG.DEFAULTS.provider;
-          const providerConfig = getProviderConfig(provider);
-
-          // For existing users, if they have an API key but no model set,
-          // use the first available model for their provider
-          let model = result.model || CONFIG.DEFAULTS.model;
-
-          // Validate that the model exists for the current provider
-          if (
-            providerConfig &&
-            providerConfig.models &&
-            !providerConfig.models[model]
-          ) {
-            // Use the first available model for this provider
-            const availableModels = Object.keys(providerConfig.models);
-            if (availableModels.length > 0) {
-              model = availableModels[0];
-            }
-          }
-
-          resolve({
-            provider: provider,
-            model: model,
-            apiKey: result.apiKey || "",
-            summaryLength:
-              result.summaryLength || CONFIG.DEFAULTS.summaryLength,
-            summaryFormat:
-              result.summaryFormat || CONFIG.DEFAULTS.summaryFormat,
-            youtubeTranscriptMode:
-              result.youtubeTranscriptMode ||
-              CONFIG.DEFAULTS.youtubeTranscriptMode,
-          });
-        },
-      );
-    });
-  }
-
-  // Create request payload for OpenAI
-  createOpenAIRequest(prompt, model, maxTokens) {
-    const requestBody = {
-      model: model,
-      max_completion_tokens: maxTokens,
-      messages: [{ role: "user", content: prompt }],
-    };
-    const temperature = CONFIG.LLM_PROVIDERS.OPENAI.temperature;
-    if (!model.startsWith("gpt-5") && typeof temperature === "number") {
-      requestBody.temperature = temperature;
-    }
-    return requestBody;
-  }
-
-  // Create request payload for Anthropic
-  createAnthropicRequest(prompt, model, maxTokens) {
-    return {
-      model: model,
-      max_tokens: maxTokens,
-      messages: [{ role: "user", content: prompt }],
-      system:
-        "You are a helpful assistant that creates concise, accurate summaries of articles.",
-    };
-  }
-
-  // Create request payload for Gemini
-  createGeminiRequest(prompt, model, maxTokens) {
-    return {
-      contents: [
-        {
-          parts: [{ text: prompt }],
-        },
-      ],
-      generationConfig: {
-        maxOutputTokens:
-          maxTokens ||
-          CONFIG.LLM_PROVIDERS.GEMINI.models[model]?.maxTokens ||
-          8192,
-        temperature: 0.7,
-      },
-    };
-  }
-
-  // Create request payload for Grok
-  createGrokRequest(prompt, model, maxTokens) {
-    return {
-      model: model,
-      max_tokens: maxTokens,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-    };
+    return loadSettings();
   }
 
   // Get request headers for each provider
   getHeaders(provider, apiKey) {
-    const headers = {
+    const adapter = getProviderAdapter(provider);
+    return {
       "Content-Type": "application/json",
+      ...adapter.headers({ apiKey }),
     };
-
-    switch (provider) {
-      case "openai":
-        headers["Authorization"] = `Bearer ${apiKey}`;
-        break;
-      case "anthropic":
-        headers["x-api-key"] = apiKey;
-        headers["anthropic-version"] = "2023-06-01";
-        headers["anthropic-dangerous-direct-browser-access"] = "true";
-        break;
-      case "gemini":
-        // Gemini uses API key in URL, not headers
-        break;
-      case "grok":
-        headers["Authorization"] = `Bearer ${apiKey}`;
-        break;
-    }
-
-    return headers;
   }
 
   // Get API URL for each provider
@@ -140,41 +137,16 @@ class APIClient {
     if (!providerConfig) {
       throw new Error(`Unsupported provider: ${provider}`);
     }
-
-    switch (provider) {
-      case "gemini":
-        return `${providerConfig.apiUrl}/${model}:generateContent?key=${apiKey}`;
-      default:
-        return providerConfig.apiUrl;
-    }
+    const adapter = getProviderAdapter(provider);
+    return adapter.apiUrl({ providerConfig, model, apiKey });
   }
 
   // Parse response based on provider
   parseResponse(provider, data) {
-    switch (provider) {
-      case "openai":
-      case "grok":
-        if (data.choices && data.choices.length > 0) {
-          return data.choices[0].message.content;
-        }
-        break;
-      case "anthropic":
-        if (data.content && data.content.length > 0) {
-          return data.content[0].text;
-        }
-        break;
-      case "gemini":
-        if (data.candidates && data.candidates.length > 0) {
-          const candidate = data.candidates[0];
-          if (
-            candidate.content &&
-            candidate.content.parts &&
-            candidate.content.parts.length > 0
-          ) {
-            return candidate.content.parts[0].text;
-          }
-        }
-        break;
+    const adapter = getProviderAdapter(provider);
+    const parsed = adapter.parseResponse(data);
+    if (parsed) {
+      return parsed;
     }
 
     throw new Error("Invalid response format from API");
@@ -250,60 +222,6 @@ class APIClient {
     return chunks;
   }
 
-  buildChunkPrompt(
-    chunk,
-    chunkIndex,
-    totalChunks,
-    targetWords,
-    summaryFormat,
-    promptContext = {},
-  ) {
-    const formatInstruction =
-      summaryFormat === "bullets"
-        ? "Format the summary as clear bullet points."
-        : "Format the summary in concise paragraphs.";
-    const sourceType = promptContext.sourceType || "article";
-    const subjectLabel =
-      sourceType === "video" ? "video transcript" : "article";
-    const titleLine = promptContext.title
-      ? `Title: ${promptContext.title}\n`
-      : "";
-
-    return `Summarize the section below from a longer ${subjectLabel}. Keep the key facts and context. Target about ${targetWords} words. ${formatInstruction}
-
-Do not include any intro text. This is section ${chunkIndex} of ${totalChunks}.
-
-Section:
----
-${titleLine}${chunk}
----`;
-  }
-
-  buildSynthesisPrompt(
-    chunkSummaries,
-    length,
-    summaryFormat,
-    promptContext = {},
-  ) {
-    const wordCount = CONFIG.SUMMARY_LENGTHS[length]?.words || 200;
-    const formatInstruction =
-      summaryFormat === "bullets"
-        ? "Format the summary as clear bullet points."
-        : "Format the summary in well-structured paragraphs.";
-    const sourceType = promptContext.sourceType || "article";
-    const subjectLabel =
-      sourceType === "video" ? "video transcript" : "article";
-
-    return `The text below contains summaries of multiple sections from one long ${subjectLabel}. Synthesize them into a single coherent summary around ${wordCount} words. ${formatInstruction} Remove duplication and keep the most important points.
-
-Do not include any intro text.
-
-Section summaries:
----
-${chunkSummaries}
----`;
-  }
-
   async requestSummary(
     prompt,
     settings,
@@ -315,24 +233,13 @@ ${chunkSummaries}
       const { provider, model, apiKey } = settings;
       const maxTokens =
         maxTokensOverride || providerConfig.models[model].maxTokens;
-
-      let requestBody;
-      switch (provider) {
-        case "openai":
-          requestBody = this.createOpenAIRequest(prompt, model, maxTokens);
-          break;
-        case "anthropic":
-          requestBody = this.createAnthropicRequest(prompt, model, maxTokens);
-          break;
-        case "gemini":
-          requestBody = this.createGeminiRequest(prompt, model, maxTokens);
-          break;
-        case "grok":
-          requestBody = this.createGrokRequest(prompt, model, maxTokens);
-          break;
-        default:
-          throw new Error(`Unsupported provider: ${provider}`);
-      }
+      const adapter = getProviderAdapter(provider);
+      const requestBody = adapter.buildRequest({
+        prompt,
+        model,
+        maxTokens,
+        providerConfig,
+      });
 
       this.abortController = new AbortController();
       const timeoutId = setTimeout(() => {
@@ -416,7 +323,7 @@ ${chunkSummaries}
 
     const chunkSummaries = [];
     for (let i = 0; i < chunks.length; i += 1) {
-      const prompt = this.buildChunkPrompt(
+      const prompt = buildChunkPrompt(
         chunks[i],
         i + 1,
         chunks.length,
@@ -434,7 +341,7 @@ ${chunkSummaries}
     }
 
     const combinedSummaries = chunkSummaries.filter(Boolean).join("\n\n");
-    const synthesisPrompt = this.buildSynthesisPrompt(
+    const synthesisPrompt = buildSynthesisPrompt(
       combinedSummaries,
       settings.summaryLength,
       settings.summaryFormat,
@@ -474,7 +381,10 @@ ${chunkSummaries}
         throw new Error(`No models available for provider: ${provider}`);
       }
       resolvedModel = availableModels[0];
-      chrome.storage.local.set({ model: resolvedModel });
+      await saveSettings(
+        { ...settings, model: resolvedModel },
+        { merge: false },
+      );
     }
 
     const resolvedSettings = { ...settings, model: resolvedModel };
@@ -572,31 +482,13 @@ ${chunkSummaries}
     }
 
     try {
-      let requestBody;
-      switch (provider) {
-        case "openai":
-          requestBody = this.createOpenAIRequest(testPrompt, resolvedModel, 10);
-          break;
-        case "anthropic":
-          requestBody = this.createAnthropicRequest(
-            testPrompt,
-            resolvedModel,
-            10,
-          );
-          break;
-        case "gemini":
-          requestBody = this.createGeminiRequest(testPrompt, resolvedModel, 10);
-          requestBody.generationConfig.maxOutputTokens = 10;
-          break;
-        case "grok":
-          requestBody = this.createGrokRequest(testPrompt, resolvedModel, 10);
-          break;
-        default:
-          return {
-            ok: false,
-            errorMessage: `Unsupported provider: ${provider}`,
-          };
-      }
+      const adapter = getProviderAdapter(provider);
+      const requestBody = adapter.buildRequest({
+        prompt: testPrompt,
+        model: resolvedModel,
+        maxTokens: 10,
+        providerConfig,
+      });
 
       const response = await fetch(
         this.getAPIURL(provider, resolvedModel, apiKey),

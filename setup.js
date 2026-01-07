@@ -1,5 +1,7 @@
 import { CONFIG, getProviderConfig } from "./constants.js";
 import APIClient from "./api-client.js";
+import { saveSettings } from "./modules/settings-store.js";
+import { getProviderUiData } from "./modules/provider-ui.js";
 
 const apiClient = new APIClient();
 
@@ -55,73 +57,31 @@ function updateProviderInfo(provider) {
   const apiKeyLinks = document.getElementById("apiKeyLinks");
   const apiKeyInput = document.getElementById("apiKey");
 
-  const providerConfig = getProviderConfig(provider);
+  const { providerConfig, description, links, apiKeyPlaceholder } =
+    getProviderUiData(provider);
 
   // Update API key placeholder
-  if (providerConfig) {
-    apiKeyInput.placeholder = `${providerConfig.keyPrefix}...`;
+  if (apiKeyPlaceholder) {
+    apiKeyInput.placeholder = apiKeyPlaceholder;
   }
 
   // Clear existing content
   providerInfo.innerHTML = "";
   apiKeyLinks.innerHTML = "";
 
-  // Provider-specific information
-  const providerDescriptions = {
-    openai: {
-      description:
-        "OpenAI provides the GPT-5 Mini and Nano models, balancing strong reasoning with low latency and cost.",
-      linkText: "OpenAI API Keys",
-      linkUrl: "https://platform.openai.com/api-keys",
-      signupUrl: "https://platform.openai.com/signup",
-    },
-    anthropic: {
-      description:
-        "Anthropic's Claude Sonnet 4.5 pairs fast responses with deeper reasoning and strong safety defaults for nuanced summaries.",
-      linkText: "Anthropic Console",
-      linkUrl: "https://console.anthropic.com/",
-      signupUrl: "https://console.anthropic.com/",
-    },
-    gemini: {
-      description:
-        "Google's Gemini 2.5 Flash Preview offers competitive performance with generous free tiers. Good for high-volume usage.",
-      linkText: "Google AI Studio",
-      linkUrl: "https://aistudio.google.com/app/apikey",
-      signupUrl: "https://aistudio.google.com/",
-    },
-    grok: {
-      description:
-        "xAI's Grok 4 Fast offers fresh reasoning with competitive latency and web-native context updates.",
-      linkText: "xAI Console",
-      linkUrl: "https://console.x.ai/",
-      signupUrl: "https://console.x.ai/",
-    },
-  };
-
-  const info = providerDescriptions[provider];
-  if (info) {
-    providerInfo.innerHTML = `<p><strong>${providerConfig.name}:</strong> ${info.description}</p>`;
-
-    // Add API key link
-    const keyLi = document.createElement("li");
-    const keyLink = document.createElement("a");
-    keyLink.href = info.linkUrl;
-    keyLink.target = "_blank";
-    keyLink.textContent = info.linkText;
-    keyLi.appendChild(keyLink);
-    apiKeyLinks.appendChild(keyLi);
-
-    // Add signup link if different
-    if (info.signupUrl !== info.linkUrl) {
-      const signupLi = document.createElement("li");
-      const signupLink = document.createElement("a");
-      signupLink.href = info.signupUrl;
-      signupLink.target = "_blank";
-      signupLink.textContent = `Sign up for ${providerConfig.name}`;
-      signupLi.appendChild(signupLink);
-      apiKeyLinks.appendChild(signupLi);
-    }
+  if (providerConfig && description) {
+    providerInfo.innerHTML = `<p><strong>${providerConfig.name}:</strong> ${description}</p>`;
   }
+
+  links.forEach((link) => {
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = link.url;
+    a.target = "_blank";
+    a.textContent = link.text;
+    li.appendChild(a);
+    apiKeyLinks.appendChild(li);
+  });
 }
 
 async function saveSetup() {
@@ -155,15 +115,29 @@ async function saveSetup() {
       return;
     }
 
+    await saveSettings(
+      {
+        provider,
+        model,
+        apiKey,
+        summaryLength: CONFIG.DEFAULTS.summaryLength,
+        summaryFormat: CONFIG.DEFAULTS.summaryFormat,
+        youtubeTranscriptMode: CONFIG.DEFAULTS.youtubeTranscriptMode,
+      },
+      { merge: false },
+    );
+
     // Hide the form
     document.getElementById("setupForm").style.display = "none";
 
     // Show success message
     const contentElement = document.getElementById("content");
+    const { providerConfig } = getProviderUiData(provider);
+    const providerName = providerConfig?.name || provider;
     const successMessage = document.createElement("div");
     successMessage.innerHTML = `
       <h3 style="color: green;">Setup Complete!</h3>
-      <p>Your ${getProviderConfig(provider).name} API key has been saved securely in your browser.</p>
+      <p>Your ${providerName} API key has been saved securely in your browser.</p>
       <p>You can now summarize articles by:</p>
       <ul>
         <li>Clicking the SummerIce extension icon</li>
@@ -173,21 +147,11 @@ async function saveSetup() {
       <p style="margin-top: 20px;"><em>It is safe to close this tab now.</em></p>
     `;
     contentElement.appendChild(successMessage);
-
-    // Save all settings
-    const settings = {
-      provider,
-      model,
-      apiKey,
-      summaryLength: CONFIG.DEFAULTS.summaryLength,
-      summaryFormat: CONFIG.DEFAULTS.summaryFormat,
-      youtubeTranscriptMode: CONFIG.DEFAULTS.youtubeTranscriptMode,
-    };
-
-    chrome.storage.local.set(settings, function () {});
   } catch (error) {
-    console.error("API key validation error:", error);
-    showSetupError("Error validating API key: " + error.message);
+    console.error("Setup error:", error);
+    showSetupError(
+      error.message ? `Setup failed: ${error.message}` : "Setup failed.",
+    );
   } finally {
     submitButton.disabled = false;
     submitButton.textContent = "Save & Start";

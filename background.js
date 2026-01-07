@@ -104,53 +104,82 @@ async function closeOffscreenDocument() {
   }
 }
 
-// Main message handler
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === "extractedHTML") {
-    handleContentExtraction(request.htmlContent, request.url, request.title);
-  } else if (request.type === "cancelSummary") {
-    apiClient.cancelRequest();
-    closeOffscreenDocument();
-  }
-});
+const sendSummaryResult = ({ summary, title, fromCache }) => {
+  chrome.runtime.sendMessage({
+    type: "summarizationResult",
+    summary,
+    title,
+    fromCache,
+  });
+};
 
-// Handle content extraction and summarization
-async function handleContentExtraction(htmlContent, url, title) {
+const sendSummaryError = (message) => {
+  chrome.runtime.sendMessage({
+    type: "summarizationError",
+    error: message,
+  });
+};
+
+const scheduleOffscreenClose = (delayMs = 1000) => {
+  setTimeout(() => closeOffscreenDocument(), delayMs);
+};
+
+const summarizeWithPipeline = async ({
+  url,
+  title,
+  settings,
+  resolveContent,
+  onFinally,
+  logLabel = "Summarization error",
+}) => {
   try {
-    // Get current settings
-    const settings = await apiClient.getSettings();
-
-    // Check cache first
     const cachedEntry = await cache.get(url, settings);
     if (cachedEntry?.summary) {
-      chrome.runtime.sendMessage({
-        type: "summarizationResult",
+      sendSummaryResult({
         summary: cachedEntry.summary,
         fromCache: true,
       });
-      return;
+      return { fromCache: true };
     }
 
-    const videoId = extractYouTubeVideoId(url);
-    if (videoId) {
-      const handled = await handleYouTubeSummary({
-        htmlContent,
-        url,
-        title,
-        settings,
-      });
-      if (handled) {
-        return;
-      }
+    const resolved = await resolveContent();
+    if (!resolved?.content) {
+      const errorMessage =
+        resolved?.error || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED;
+      const errorLabel = resolved?.errorLabel || logLabel;
+      console.error(`${errorLabel}:`, errorMessage);
+      sendSummaryError(errorMessage);
+      return { error: true };
     }
 
-    let extractedContent = null;
-    let extractedTitle = title;
+    const summary = await apiClient.callAPI(
+      resolved.content,
+      resolved.promptContext || {},
+    );
+    await cache.set(url, settings, summary);
 
-    // Create offscreen document for extraction
+    sendSummaryResult({
+      summary,
+      title: resolved.title || title,
+      fromCache: false,
+    });
+
+    return { summary };
+  } catch (error) {
+    console.error(`${logLabel}:`, error);
+    sendSummaryError(error.message || CONFIG.ERRORS.API_CALL_FAILED);
+    return { error: true };
+  } finally {
+    if (onFinally) {
+      onFinally();
+    }
+  }
+};
+
+const resolveArticleContent = async ({ htmlContent, url, title }) => {
+  try {
     await createOffscreenDocument();
 
-    // Extract content using offscreen document
     const extractionResult = await new Promise((resolve) => {
       chrome.runtime.sendMessage(
         { type: "extractContent", htmlContent, url },
@@ -159,49 +188,31 @@ async function handleContentExtraction(htmlContent, url, title) {
     });
 
     if (!extractionResult || !extractionResult.success) {
-      throw new Error(
-        extractionResult?.error || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED,
-      );
+      return {
+        error:
+          extractionResult?.error || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED,
+        errorLabel: "Content extraction error",
+      };
     }
 
-    extractedContent = extractionResult.content;
-    extractedTitle = extractionResult.title || title;
-
-    try {
-      // Generate summary using API
-      const summary = await apiClient.callAPI(extractedContent);
-
-      // Cache the result
-      await cache.set(url, settings, summary);
-
-      // Send result to popup
-      chrome.runtime.sendMessage({
-        type: "summarizationResult",
-        summary: summary,
-        title: extractedTitle,
-        fromCache: false,
-      });
-    } catch (error) {
-      console.error("Summarization error:", error);
-      chrome.runtime.sendMessage({
-        type: "summarizationError",
-        error: error.message || CONFIG.ERRORS.API_CALL_FAILED,
-      });
-    } finally {
-      // Clean up offscreen document
-      setTimeout(() => closeOffscreenDocument(), 1000);
-    }
+    return {
+      content: extractionResult.content,
+      title: extractionResult.title || title,
+    };
   } catch (error) {
-    console.error("Content extraction error:", error);
-    chrome.runtime.sendMessage({
-      type: "summarizationError",
+    return {
       error: error.message || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED,
-    });
-    closeOffscreenDocument();
+      errorLabel: "Content extraction error",
+    };
   }
-}
+};
 
-async function handleYouTubeSummary({ htmlContent, url, title, settings }) {
+const resolveYouTubeSummaryContent = async ({
+  htmlContent,
+  url,
+  title,
+  settings,
+}) => {
   try {
     const transcriptMode =
       settings.youtubeTranscriptMode === "no-auto"
@@ -216,36 +227,72 @@ async function handleYouTubeSummary({ htmlContent, url, title, settings }) {
     });
 
     if (!result?.text) {
-      chrome.runtime.sendMessage({
-        type: "summarizationError",
+      return {
         error: CONFIG.ERRORS.YOUTUBE_TRANSCRIPT_UNAVAILABLE,
-      });
-      return true;
+        errorLabel: "YouTube summarization error",
+      };
     }
 
-    const summary = await apiClient.callAPI(result.text, {
-      sourceType: "video",
-      title: result.title || title || null,
-    });
+    const resolvedTitle = result.title || title;
 
-    await cache.set(url, settings, summary);
-
-    chrome.runtime.sendMessage({
-      type: "summarizationResult",
-      summary: summary,
-      title: result.title || title,
-      fromCache: false,
-    });
-
-    return true;
+    return {
+      content: result.text,
+      title: resolvedTitle,
+      promptContext: {
+        sourceType: "video",
+        title: resolvedTitle || null,
+      },
+    };
   } catch (error) {
-    console.error("YouTube summarization error:", error);
-    chrome.runtime.sendMessage({
-      type: "summarizationError",
+    return {
       error: error.message || CONFIG.ERRORS.API_CALL_FAILED,
-    });
-    return true;
+      errorLabel: "YouTube summarization error",
+    };
   }
+};
+
+// Main message handler
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === "extractedHTML") {
+    handleContentExtraction(request.htmlContent, request.url, request.title);
+  } else if (request.type === "cancelSummary") {
+    apiClient.cancelRequest();
+    closeOffscreenDocument();
+  }
+});
+
+// Handle content extraction and summarization
+async function handleContentExtraction(htmlContent, url, title) {
+  let settings;
+  try {
+    settings = await apiClient.getSettings();
+  } catch (error) {
+    console.error("Failed to load settings:", error);
+    sendSummaryError(error.message || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED);
+    return;
+  }
+
+  const videoId = extractYouTubeVideoId(url);
+  if (videoId) {
+    await summarizeWithPipeline({
+      url,
+      title,
+      settings,
+      resolveContent: () =>
+        resolveYouTubeSummaryContent({ htmlContent, url, title, settings }),
+      logLabel: "YouTube summarization error",
+    });
+    return;
+  }
+
+  await summarizeWithPipeline({
+    url,
+    title,
+    settings,
+    resolveContent: () => resolveArticleContent({ htmlContent, url, title }),
+    onFinally: scheduleOffscreenClose,
+    logLabel: "Summarization error",
+  });
 }
 
 // Handle extension lifecycle

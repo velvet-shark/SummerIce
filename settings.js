@@ -1,5 +1,14 @@
-import { CONFIG, getProviderConfig } from "./constants.js";
+import { getProviderConfig } from "./constants.js";
 import APIClient from "./api-client.js";
+import {
+  loadSettings,
+  normalizeSettings,
+  saveSettings,
+} from "./modules/settings-store.js";
+import {
+  getProviderApiKeyLink,
+  getProviderUiData,
+} from "./modules/provider-ui.js";
 
 const apiClient = new APIClient();
 
@@ -15,44 +24,43 @@ function displayVersion() {
     `Version ${manifest.version}`;
 }
 
-function initializeSettings() {
-  // Load current settings
-  chrome.storage.local.get(
-    [
-      "provider",
-      "model",
-      "apiKey",
-      "summaryLength",
-      "summaryFormat",
-      "youtubeTranscriptMode",
-    ],
-    function (result) {
-      const provider = result.provider || CONFIG.DEFAULTS.provider;
-      const model = result.model || CONFIG.DEFAULTS.model;
+async function initializeSettings() {
+  let settings = null;
+  try {
+    settings = await loadSettings();
+  } catch (error) {
+    console.error("Failed to load settings:", error);
+    settings = normalizeSettings({});
+    showMessage("Failed to load saved settings. Using defaults.", "red");
+  }
+  const {
+    provider,
+    model,
+    apiKey,
+    summaryLength,
+    summaryFormat,
+    youtubeTranscriptMode,
+  } = settings;
 
-      // Set provider
-      document.getElementById("provider").value = provider;
+  // Set provider
+  document.getElementById("provider").value = provider;
 
-      // Update model options and set current model
-      updateModelOptions(provider, model);
+  // Update model options and set current model
+  updateModelOptions(provider, model);
 
-      // Set API key
-      if (result.apiKey) {
-        document.getElementById("apiKey").value = result.apiKey;
-      }
+  // Set API key
+  if (apiKey) {
+    document.getElementById("apiKey").value = apiKey;
+  }
 
-      // Set summary preferences
-      document.getElementById("summaryLength").value =
-        result.summaryLength || CONFIG.DEFAULTS.summaryLength;
-      document.getElementById("summaryFormat").value =
-        result.summaryFormat || CONFIG.DEFAULTS.summaryFormat;
-      document.getElementById("youtubeTranscriptMode").value =
-        result.youtubeTranscriptMode || CONFIG.DEFAULTS.youtubeTranscriptMode;
+  // Set summary preferences
+  document.getElementById("summaryLength").value = summaryLength;
+  document.getElementById("summaryFormat").value = summaryFormat;
+  document.getElementById("youtubeTranscriptMode").value =
+    youtubeTranscriptMode;
 
-      // Update API key help
-      updateApiKeyHelp(provider);
-    },
-  );
+  // Update API key help
+  updateApiKeyHelp(provider);
 }
 
 function setupEventListeners() {
@@ -69,7 +77,7 @@ function setupEventListeners() {
     .getElementById("settingsForm")
     .addEventListener("submit", function (event) {
       event.preventDefault();
-      saveSettings();
+      persistSettings();
     });
 
   // Test API key
@@ -114,43 +122,24 @@ function updateApiKeyHelp(provider) {
   apiKeyLinks.innerHTML = "";
 
   // Update placeholder
-  const providerConfig = getProviderConfig(provider);
-  if (providerConfig) {
-    apiKeyInput.placeholder = `${providerConfig.keyPrefix}...`;
+  const { apiKeyPlaceholder } = getProviderUiData(provider);
+  if (apiKeyPlaceholder) {
+    apiKeyInput.placeholder = apiKeyPlaceholder;
   }
 
-  // Add provider-specific links
-  const links = {
-    openai: {
-      text: "OpenAI API Keys",
-      url: "https://platform.openai.com/api-keys",
-    },
-    anthropic: {
-      text: "Anthropic Console",
-      url: "https://console.anthropic.com/",
-    },
-    gemini: {
-      text: "Google AI Studio",
-      url: "https://aistudio.google.com/app/apikey",
-    },
-    grok: {
-      text: "xAI Console",
-      url: "https://console.x.ai/",
-    },
-  };
-
-  if (links[provider]) {
+  const apiKeyLink = getProviderApiKeyLink(provider);
+  if (apiKeyLink) {
     const li = document.createElement("li");
     const a = document.createElement("a");
-    a.href = links[provider].url;
+    a.href = apiKeyLink.url;
     a.target = "_blank";
-    a.textContent = links[provider].text;
+    a.textContent = apiKeyLink.text;
     li.appendChild(a);
     apiKeyLinks.appendChild(li);
   }
 }
 
-function saveSettings() {
+async function persistSettings() {
   const provider = document.getElementById("provider").value;
   const model = document.getElementById("model").value;
   const apiKey = document.getElementById("apiKey").value;
@@ -169,9 +158,13 @@ function saveSettings() {
     youtubeTranscriptMode,
   };
 
-  chrome.storage.local.set(settings, function () {
+  try {
+    await saveSettings(settings);
     showMessage("Settings saved successfully!", "green");
-  });
+  } catch (error) {
+    console.error("Settings save failed:", error);
+    showMessage("Failed to save settings. Please try again.", "red");
+  }
 }
 
 async function testApiKey() {

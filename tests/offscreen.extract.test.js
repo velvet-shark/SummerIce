@@ -4,7 +4,9 @@ import { extractContent } from "../offscreen.js";
 const buildLongText = () => {
   const paragraph =
     "Important content about the article that should be captured by the extractor. ";
-  return Array.from({ length: 40 }).map(() => paragraph).join("");
+  return Array.from({ length: 40 })
+    .map(() => paragraph)
+    .join("");
 };
 
 describe("offscreen extraction", () => {
