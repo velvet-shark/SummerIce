@@ -1,4 +1,8 @@
-import { CONFIG, getProviderConfig } from "./constants.js";
+import {
+  CONFIG,
+  getProviderConfig,
+  validateProviderApiKey,
+} from "./constants.js";
 import APIClient from "./api-client.js";
 import { saveSettings } from "./modules/settings-store.js";
 import { getProviderUiData } from "./modules/provider-ui.js";
@@ -66,11 +70,15 @@ function updateProviderInfo(provider) {
   }
 
   // Clear existing content
-  providerInfo.innerHTML = "";
-  apiKeyLinks.innerHTML = "";
+  providerInfo.replaceChildren();
+  apiKeyLinks.replaceChildren();
 
   if (providerConfig && description) {
-    providerInfo.innerHTML = `<p><strong>${providerConfig.name}:</strong> ${description}</p>`;
+    const paragraph = document.createElement("p");
+    const label = document.createElement("strong");
+    label.textContent = `${providerConfig.name}:`;
+    paragraph.append(label, ` ${description}`);
+    providerInfo.appendChild(paragraph);
   }
 
   links.forEach((link) => {
@@ -78,6 +86,7 @@ function updateProviderInfo(provider) {
     const a = document.createElement("a");
     a.href = link.url;
     a.target = "_blank";
+    a.rel = "noreferrer noopener";
     a.textContent = link.text;
     li.appendChild(a);
     apiKeyLinks.appendChild(li);
@@ -91,10 +100,14 @@ async function saveSetup() {
   const submitButton = document
     .getElementById("setupForm")
     .querySelector('button[type="submit"]');
-  const errorDisplay = document.getElementById("setupError");
-
   if (!apiKey.trim()) {
     showSetupError("Please enter your API key");
+    return;
+  }
+
+  const validation = validateProviderApiKey(provider, apiKey);
+  if (!validation.ok) {
+    showSetupError(validation.errorMessage);
     return;
   }
 
@@ -135,17 +148,36 @@ async function saveSetup() {
     const { providerConfig } = getProviderUiData(provider);
     const providerName = providerConfig?.name || provider;
     const successMessage = document.createElement("div");
-    successMessage.innerHTML = `
-      <h3 style="color: green;">Setup Complete!</h3>
-      <p>Your ${providerName} API key has been saved securely in your browser.</p>
-      <p>You can now summarize articles by:</p>
-      <ul>
-        <li>Clicking the SummerIce extension icon</li>
-        <li>Pressing <strong>Ctrl+Shift+Y</strong> (Windows) or <strong>Cmd+Shift+Y</strong> (Mac)</li>
-      </ul>
-      <p>You can change your AI provider or settings anytime by visiting the Settings page.</p>
-      <p style="margin-top: 20px;"><em>It is safe to close this tab now.</em></p>
-    `;
+    const heading = document.createElement("h3");
+    heading.style.color = "green";
+    heading.textContent = "Setup Complete!";
+    const intro = document.createElement("p");
+    intro.textContent = `Your ${providerName} API key has been saved securely in your browser.`;
+    const instructions = document.createElement("p");
+    instructions.textContent = "You can now summarize articles by:";
+    const list = document.createElement("ul");
+    const iconItem = document.createElement("li");
+    iconItem.textContent = "Clicking the SummerIce extension icon";
+    const shortcutItem = document.createElement("li");
+    shortcutItem.textContent =
+      "Pressing Ctrl+Shift+Y (Windows) or Cmd+Shift+Y (Mac)";
+    list.append(iconItem, shortcutItem);
+    const settingsNote = document.createElement("p");
+    settingsNote.textContent =
+      "You can change your AI provider or settings anytime by visiting the Settings page.";
+    const closeNote = document.createElement("p");
+    closeNote.style.marginTop = "20px";
+    const emphasis = document.createElement("em");
+    emphasis.textContent = "It is safe to close this tab now.";
+    closeNote.appendChild(emphasis);
+    successMessage.append(
+      heading,
+      intro,
+      instructions,
+      list,
+      settingsNote,
+      closeNote,
+    );
     contentElement.appendChild(successMessage);
   } catch (error) {
     console.error("Setup error:", error);

@@ -1,10 +1,10 @@
 {
   "name": "summerice-extension",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "A browser extension to summarize articles quickly using multiple LLM providers",
   "main": "background.js",
   "scripts": {
-    "build": "npm install",
+    "build": "npm run test && npm run build:zip",
     "test": "vitest run",
     "test:models": "node ./tests/verify-models.mjs",
     "build:zip": "node ./scripts/build-zip.mjs"

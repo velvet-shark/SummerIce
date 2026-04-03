@@ -53,14 +53,12 @@ const handleExtractContent = async (sendResponse) => {
     return;
   }
 
-  chrome.runtime.sendMessage({
-    type: "extractedHTML",
+  sendResponse({
+    success: true,
     htmlContent: document.documentElement.outerHTML,
     url: window.location.href,
     title: document.title,
   });
-
-  sendResponse({ status: "ok" });
 };
 
 // Simple content script that only handles page access validation and HTML extraction

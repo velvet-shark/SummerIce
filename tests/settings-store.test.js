@@ -8,10 +8,25 @@ import {
 
 const createStorageMock = (initial = {}) => {
   const store = { ...initial };
+  let shouldFailGet = false;
+  let shouldFailSet = false;
 
   return {
     store,
+    failGet() {
+      shouldFailGet = true;
+    },
+    failSet() {
+      shouldFailSet = true;
+    },
     get(keys, cb) {
+      if (shouldFailGet) {
+        global.chrome.runtime.lastError = { message: "Storage get failed" };
+        cb({});
+        global.chrome.runtime.lastError = null;
+        return;
+      }
+
       if (Array.isArray(keys)) {
         const result = {};
         keys.forEach((key) => {
@@ -25,6 +40,13 @@ const createStorageMock = (initial = {}) => {
       cb({ ...store });
     },
     set(values, cb) {
+      if (shouldFailSet) {
+        global.chrome.runtime.lastError = { message: "Storage set failed" };
+        cb?.();
+        global.chrome.runtime.lastError = null;
+        return;
+      }
+
       Object.assign(store, values);
       if (cb) cb();
     },
@@ -34,12 +56,15 @@ const createStorageMock = (initial = {}) => {
 const withStorage = async (initial, testFn) => {
   const storage = createStorageMock(initial);
   global.chrome = {
+    runtime: {
+      lastError: null,
+    },
     storage: {
       local: storage,
     },
   };
   try {
-    await testFn(storage.store);
+    await testFn(storage.store, storage);
   } finally {
     delete global.chrome;
   }
@@ -75,7 +100,7 @@ describe("settings store", () => {
     await withStorage(
       {
         provider: "openai",
-        model: "gpt-5-mini",
+        model: "gpt-5.4-mini",
         apiKey: "sk-test",
       },
       async (store) => {
@@ -83,7 +108,7 @@ describe("settings store", () => {
 
         expect(store).toMatchObject({
           provider: "openai",
-          model: "gpt-5-mini",
+          model: "gpt-5.4-mini",
           apiKey: "sk-test",
           summaryFormat: "bullets",
         });
@@ -95,14 +120,14 @@ describe("settings store", () => {
     await withStorage(
       {
         provider: "openai",
-        model: "gpt-5-mini",
+        model: "gpt-5.4-mini",
         apiKey: "sk-test",
       },
       async (store) => {
         await saveSettings(
           {
             provider: "grok",
-            model: "grok-4-fast-reasoning",
+            model: "grok-4-1-fast-reasoning",
             apiKey: "xai-test",
           },
           { merge: false },
@@ -110,10 +135,32 @@ describe("settings store", () => {
 
         expect(store).toMatchObject({
           provider: "grok",
-          model: "grok-4-fast-reasoning",
+          model: "grok-4-1-fast-reasoning",
           apiKey: "xai-test",
         });
       },
     );
+  });
+
+  it("rejects when settings cannot be loaded", async () => {
+    await withStorage({}, async (_, storage) => {
+      storage.failGet();
+
+      await expect(loadSettings()).rejects.toThrow("Storage get failed");
+    });
+  });
+
+  it("rejects when settings cannot be saved", async () => {
+    await withStorage({}, async (_, storage) => {
+      storage.failSet();
+
+      await expect(
+        saveSettings({
+          provider: "openai",
+          model: "gpt-5.4-mini",
+          apiKey: "sk-test",
+        }),
+      ).rejects.toThrow("Storage set failed");
+    });
   });
 });

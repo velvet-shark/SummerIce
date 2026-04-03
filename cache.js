@@ -43,8 +43,13 @@ class SummaryCache {
     try {
       const cacheKey = this.generateCacheKey(url, settings);
 
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         this.storage.get([cacheKey], (result) => {
+          if (chrome.runtime?.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
+
           const cached = result[cacheKey];
 
           if (!cached) {
@@ -78,31 +83,37 @@ class SummaryCache {
     try {
       const cacheKey = this.generateCacheKey(url, settings);
       const cacheEntry = {
-        summary: summary,
+        summary,
         timestamp: Date.now(),
-        url: url,
-        settings: settings,
+        url,
+        settings,
       };
 
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         this.storage.set({ [cacheKey]: cacheEntry }, () => {
           if (chrome.runtime.lastError) {
-            console.error("Cache set error:", chrome.runtime.lastError);
-          } else {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
           }
           resolve();
         });
       });
     } catch (error) {
       console.error("Cache set error:", error);
+      return false;
     }
   }
 
   // Clear expired cache entries
   async cleanup() {
     try {
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         this.storage.get(null, (items) => {
+          if (chrome.runtime?.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
+
           const now = Date.now();
           const keysToRemove = [];
           const expiredThreshold = CONFIG.CACHE_TTL_HOURS * 60 * 60 * 1000;
@@ -117,6 +128,10 @@ class SummaryCache {
 
           if (keysToRemove.length > 0) {
             this.storage.remove(keysToRemove, () => {
+              if (chrome.runtime?.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+              }
               resolve();
             });
           } else {
@@ -132,14 +147,23 @@ class SummaryCache {
   // Clear all cache entries
   async clear() {
     try {
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         this.storage.get(null, (items) => {
+          if (chrome.runtime?.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
+
           const summaryKeys = Object.keys(items).filter((key) =>
             key.startsWith("summary_"),
           );
 
           if (summaryKeys.length > 0) {
             this.storage.remove(summaryKeys, () => {
+              if (chrome.runtime?.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+              }
               resolve();
             });
           } else {
@@ -155,19 +179,24 @@ class SummaryCache {
   // Get cache statistics
   async getStats() {
     try {
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         this.storage.get(null, (items) => {
+          if (chrome.runtime?.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
+
           const summaryEntries = Object.entries(items).filter(([key]) =>
             key.startsWith("summary_"),
           );
           const now = Date.now();
           const expiredThreshold = CONFIG.CACHE_TTL_HOURS * 60 * 60 * 1000;
 
-          let totalEntries = summaryEntries.length;
+          const totalEntries = summaryEntries.length;
           let expiredEntries = 0;
           let totalSize = 0;
 
-          summaryEntries.forEach(([key, value]) => {
+          summaryEntries.forEach(([, value]) => {
             if (value.timestamp && now - value.timestamp > expiredThreshold) {
               expiredEntries++;
             }

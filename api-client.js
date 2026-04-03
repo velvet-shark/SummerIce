@@ -1,4 +1,9 @@
-import { CONFIG, getProviderConfig } from "./constants.js";
+import {
+  CONFIG,
+  getProviderConfig,
+  resolveProviderModel,
+  validateProviderApiKey,
+} from "./constants.js";
 import { loadSettings, saveSettings } from "./modules/settings-store.js";
 import {
   buildChunkPrompt,
@@ -6,145 +11,30 @@ import {
   getSummaryPrompt,
 } from "./modules/prompts.js";
 
-const DEFAULT_SYSTEM_PROMPT =
-  "You are a helpful assistant that creates concise, accurate summaries of articles.";
-
-const PROVIDER_ADAPTERS = {
-  openai: {
-    buildRequest: ({ prompt, model, maxTokens, providerConfig }) => {
-      const requestBody = {
-        model: model,
-        max_completion_tokens: maxTokens,
-        messages: [{ role: "user", content: prompt }],
-      };
-      const temperature = providerConfig.temperature;
-      if (!model.startsWith("gpt-5") && typeof temperature === "number") {
-        requestBody.temperature = temperature;
-      }
-      return requestBody;
-    },
-    headers: ({ apiKey }) => ({
-      Authorization: `Bearer ${apiKey}`,
-    }),
-    apiUrl: ({ providerConfig }) => providerConfig.apiUrl,
-    parseResponse: (data) => {
-      if (data.choices && data.choices.length > 0) {
-        return data.choices[0].message.content;
-      }
-      return null;
-    },
-  },
-  anthropic: {
-    buildRequest: ({ prompt, model, maxTokens }) => ({
-      model: model,
-      max_tokens: maxTokens,
-      messages: [{ role: "user", content: prompt }],
-      system: DEFAULT_SYSTEM_PROMPT,
-    }),
-    headers: ({ apiKey }) => ({
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    }),
-    apiUrl: ({ providerConfig }) => providerConfig.apiUrl,
-    parseResponse: (data) => {
-      if (data.content && data.content.length > 0) {
-        return data.content[0].text;
-      }
-      return null;
-    },
-  },
-  gemini: {
-    buildRequest: ({ prompt, model, maxTokens, providerConfig }) => ({
-      contents: [
-        {
-          parts: [{ text: prompt }],
-        },
-      ],
-      generationConfig: {
-        maxOutputTokens:
-          maxTokens || providerConfig.models[model]?.maxTokens || 8192,
-        temperature: 0.7,
-      },
-    }),
-    headers: () => ({}),
-    apiUrl: ({ providerConfig, model, apiKey }) =>
-      `${providerConfig.apiUrl}/${model}:generateContent?key=${apiKey}`,
-    parseResponse: (data) => {
-      if (data.candidates && data.candidates.length > 0) {
-        const candidate = data.candidates[0];
-        if (
-          candidate.content &&
-          candidate.content.parts &&
-          candidate.content.parts.length > 0
-        ) {
-          return candidate.content.parts[0].text;
-        }
-      }
-      return null;
-    },
-  },
-  grok: {
-    buildRequest: ({ prompt, model, maxTokens }) => ({
-      model: model,
-      max_tokens: maxTokens,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-    }),
-    headers: ({ apiKey }) => ({
-      Authorization: `Bearer ${apiKey}`,
-    }),
-    apiUrl: ({ providerConfig }) => providerConfig.apiUrl,
-    parseResponse: (data) => {
-      if (data.choices && data.choices.length > 0) {
-        return data.choices[0].message.content;
-      }
-      return null;
-    },
-  },
-};
-
-const getProviderAdapter = (provider) => {
-  const adapter = PROVIDER_ADAPTERS[provider];
-  if (!adapter) {
-    throw new Error(`Unsupported provider: ${provider}`);
+const assertNotAborted = (signal) => {
+  if (signal?.aborted) {
+    throw new Error(CONFIG.ERRORS.REQUEST_CANCELLED);
   }
-  return adapter;
 };
 
 class APIClient {
-  constructor() {
-    this.abortController = null;
-  }
-
-  // Get API configuration for a provider
   async getSettings() {
     return loadSettings();
   }
 
-  // Get request headers for each provider
-  getHeaders(provider, apiKey) {
-    const adapter = getProviderAdapter(provider);
+  getHeaders(providerConfig, apiKey) {
     return {
       "Content-Type": "application/json",
-      ...adapter.headers({ apiKey }),
+      ...providerConfig.getHeaders({ apiKey }),
     };
   }
 
-  // Get API URL for each provider
-  getAPIURL(provider, model, apiKey) {
-    const providerConfig = getProviderConfig(provider);
-    if (!providerConfig) {
-      throw new Error(`Unsupported provider: ${provider}`);
-    }
-    const adapter = getProviderAdapter(provider);
-    return adapter.apiUrl({ providerConfig, model, apiKey });
+  getAPIURL(providerConfig, model, apiKey) {
+    return providerConfig.getApiUrl({ providerConfig, model, apiKey });
   }
 
-  // Parse response based on provider
-  parseResponse(provider, data) {
-    const adapter = getProviderAdapter(provider);
-    const parsed = adapter.parseResponse(data);
+  parseResponse(providerConfig, data) {
+    const parsed = providerConfig.parseResponse(data);
     if (parsed) {
       return parsed;
     }
@@ -164,7 +54,10 @@ class APIClient {
   }
 
   shouldChunkContent(content, maxTokens) {
-    if (!content) return false;
+    if (!content) {
+      return false;
+    }
+
     const maxChars = this.estimateMaxContentChars(maxTokens);
     return content.length > maxChars;
   }
@@ -192,7 +85,9 @@ class APIClient {
     while (start < content.length) {
       if (chunks.length >= maxChunks - 1) {
         const tail = content.slice(start).trim();
-        if (tail) chunks.push(tail);
+        if (tail) {
+          chunks.push(tail);
+        }
         break;
       }
 
@@ -228,45 +123,59 @@ class APIClient {
     providerConfig,
     maxTokensOverride,
     retryCount = 0,
+    { signal } = {},
   ) {
+    assertNotAborted(signal);
+
+    const { model, apiKey } = settings;
+    const maxTokens =
+      maxTokensOverride || providerConfig.models[model].maxTokens;
+    const requestBody = providerConfig.buildRequest({
+      prompt,
+      model,
+      maxTokens,
+      providerConfig,
+    });
+
+    const requestController = new AbortController();
+    let timedOut = false;
+    const abortRequest = () => requestController.abort();
+    signal?.addEventListener("abort", abortRequest, { once: true });
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      requestController.abort();
+    }, CONFIG.TIMEOUT_MS);
+
     try {
-      const { provider, model, apiKey } = settings;
-      const maxTokens =
-        maxTokensOverride || providerConfig.models[model].maxTokens;
-      const adapter = getProviderAdapter(provider);
-      const requestBody = adapter.buildRequest({
-        prompt,
-        model,
-        maxTokens,
-        providerConfig,
-      });
-
-      this.abortController = new AbortController();
-      const timeoutId = setTimeout(() => {
-        this.abortController.abort();
-      }, CONFIG.TIMEOUT_MS);
-
-      const response = await fetch(this.getAPIURL(provider, model, apiKey), {
-        method: "POST",
-        headers: this.getHeaders(provider, apiKey),
-        body: JSON.stringify(requestBody),
-        signal: this.abortController.signal,
-      });
-
-      clearTimeout(timeoutId);
+      const response = await fetch(
+        this.getAPIURL(providerConfig, model, apiKey),
+        {
+          method: "POST",
+          headers: this.getHeaders(providerConfig, apiKey),
+          body: JSON.stringify(requestBody),
+          signal: requestController.signal,
+        },
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
-          errorData.error?.message || `API request failed: ${response.status}`,
+          errorData.error?.message ||
+            errorData.message ||
+            `API request failed: ${response.status}`,
         );
       }
 
       const data = await response.json();
-      return this.parseResponse(provider, data);
+      return this.parseResponse(providerConfig, data);
     } catch (error) {
-      if (error.name === "AbortError") {
-        throw new Error(CONFIG.ERRORS.TIMEOUT);
+      if (requestController.signal.aborted) {
+        if (signal?.aborted) {
+          throw new Error(CONFIG.ERRORS.REQUEST_CANCELLED);
+        }
+        if (timedOut) {
+          throw new Error(CONFIG.ERRORS.TIMEOUT);
+        }
       }
 
       if (retryCount < CONFIG.RETRY_ATTEMPTS - 1) {
@@ -278,10 +187,14 @@ class APIClient {
           providerConfig,
           maxTokensOverride,
           retryCount + 1,
+          { signal },
         );
       }
 
       throw new Error(error.message || CONFIG.ERRORS.API_CALL_FAILED);
+    } finally {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", abortRequest);
     }
   }
 
@@ -290,6 +203,7 @@ class APIClient {
     settings,
     providerConfig,
     promptContext = {},
+    options = {},
   ) {
     const maxTokens = providerConfig.models[settings.model].maxTokens;
     const maxChunkChars = this.estimateMaxContentChars(maxTokens);
@@ -310,7 +224,14 @@ class APIClient {
         settings.summaryFormat,
         promptContext,
       );
-      return this.requestSummary(prompt, settings, providerConfig, maxTokens);
+      return this.requestSummary(
+        prompt,
+        settings,
+        providerConfig,
+        maxTokens,
+        0,
+        options,
+      );
     }
 
     const wordCount =
@@ -322,10 +243,11 @@ class APIClient {
     const chunkMaxTokens = Math.min(1024, maxTokens);
 
     const chunkSummaries = [];
-    for (let i = 0; i < chunks.length; i += 1) {
+    for (let index = 0; index < chunks.length; index += 1) {
+      assertNotAborted(options.signal);
       const prompt = buildChunkPrompt(
-        chunks[i],
-        i + 1,
+        chunks[index],
+        index + 1,
         chunks.length,
         targetWords,
         settings.summaryFormat,
@@ -336,6 +258,8 @@ class APIClient {
         settings,
         providerConfig,
         chunkMaxTokens,
+        0,
+        options,
       );
       chunkSummaries.push(summary.trim());
     }
@@ -352,43 +276,40 @@ class APIClient {
       settings,
       providerConfig,
       maxTokens,
+      0,
+      options,
     );
   }
 
-  // Main API call with chunking support
-  async callAPI(content, promptContext = {}) {
-    const settings = await this.getSettings();
-    const { provider, model, apiKey, summaryLength, summaryFormat } = settings;
+  async callAPI(content, { promptContext = {}, settings = null, signal } = {}) {
+    const loadedSettings = settings || (await this.getSettings());
+    const { provider, apiKey, summaryLength, summaryFormat } = loadedSettings;
 
-    if (!apiKey) {
-      throw new Error(CONFIG.ERRORS.NO_API_KEY);
+    const apiKeyValidation = validateProviderApiKey(provider, apiKey);
+    if (!apiKeyValidation.ok) {
+      throw new Error(apiKeyValidation.errorMessage);
     }
 
-    const providerConfig = getProviderConfig(provider);
-    if (!providerConfig) {
-      return this.legacyOpenAICall(
-        content,
-        apiKey,
-        summaryLength,
-        summaryFormat,
-      );
+    const { providerConfig, model } = resolveProviderModel(
+      provider,
+      loadedSettings.model,
+    );
+    if (!providerConfig || !model) {
+      throw new Error(`Unsupported provider: ${provider}`);
     }
 
-    let resolvedModel = model;
-    if (!providerConfig.models[resolvedModel]) {
-      const availableModels = Object.keys(providerConfig.models);
-      if (availableModels.length === 0) {
-        throw new Error(`No models available for provider: ${provider}`);
-      }
-      resolvedModel = availableModels[0];
-      await saveSettings(
-        { ...settings, model: resolvedModel },
-        { merge: false },
-      );
+    const resolvedSettings = {
+      ...loadedSettings,
+      apiKey: apiKeyValidation.apiKey,
+      model,
+    };
+
+    if (model !== loadedSettings.model) {
+      await saveSettings({ ...resolvedSettings }, { merge: false });
     }
 
-    const resolvedSettings = { ...settings, model: resolvedModel };
-    const maxTokens = providerConfig.models[resolvedModel].maxTokens;
+    const maxTokens = providerConfig.models[model].maxTokens;
+    const requestOptions = { signal };
 
     if (this.shouldChunkContent(content, maxTokens)) {
       return this.summarizeWithChunking(
@@ -396,6 +317,7 @@ class APIClient {
         resolvedSettings,
         providerConfig,
         promptContext,
+        requestOptions,
       );
     }
 
@@ -410,93 +332,48 @@ class APIClient {
       resolvedSettings,
       providerConfig,
       maxTokens,
+      0,
+      requestOptions,
     );
   }
 
-  // Cancel ongoing API call
-  cancelRequest() {
-    if (this.abortController) {
-      this.abortController.abort();
-      this.abortController = null;
-    }
-  }
-
-  // Legacy OpenAI call for backward compatibility
-  async legacyOpenAICall(
-    content,
-    apiKey,
-    summaryLength = "STANDARD",
-    summaryFormat = "paragraph",
-  ) {
-    const prompt = getSummaryPrompt(content, summaryLength, summaryFormat);
-
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-5-mini",
-        max_completion_tokens: 8192,
-        messages: [{ role: "user", content: prompt }],
-      }),
-      signal: AbortSignal.timeout(CONFIG.TIMEOUT_MS),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.error?.message || `API request failed: ${response.status}`,
-      );
-    }
-
-    const data = await response.json();
-
-    if (data.choices && data.choices.length > 0) {
-      return data.choices[0].message.content;
-    }
-
-    throw new Error("No response from OpenAI API");
-  }
-
-  // Test API key validity
   async testAPIKey(provider, apiKey, model) {
-    const testPrompt = "Test";
     const providerConfig = getProviderConfig(provider);
-
     if (!providerConfig) {
       return { ok: false, errorMessage: `Unsupported provider: ${provider}` };
     }
 
-    let resolvedModel = model;
-    if (!providerConfig.models[resolvedModel]) {
-      const availableModels = Object.keys(providerConfig.models);
-      if (availableModels.length === 0) {
-        return {
-          ok: false,
-          errorMessage: `No models available for provider: ${provider}`,
-        };
-      }
-      resolvedModel = availableModels[0];
+    const apiKeyValidation = validateProviderApiKey(provider, apiKey);
+    if (!apiKeyValidation.ok) {
+      return apiKeyValidation;
     }
 
+    const resolved = resolveProviderModel(provider, model);
+    if (!resolved.providerConfig || !resolved.model) {
+      return {
+        ok: false,
+        errorMessage: `No models available for provider: ${provider}`,
+      };
+    }
+
+    const requestController = new AbortController();
+    const timeoutId = setTimeout(() => requestController.abort(), 5000);
+
     try {
-      const adapter = getProviderAdapter(provider);
-      const requestBody = adapter.buildRequest({
-        prompt: testPrompt,
-        model: resolvedModel,
+      const requestBody = providerConfig.buildRequest({
+        prompt: "Test",
+        model: resolved.model,
         maxTokens: 10,
         providerConfig,
       });
 
       const response = await fetch(
-        this.getAPIURL(provider, resolvedModel, apiKey),
+        this.getAPIURL(providerConfig, resolved.model, apiKeyValidation.apiKey),
         {
           method: "POST",
-          headers: this.getHeaders(provider, apiKey),
+          headers: this.getHeaders(providerConfig, apiKeyValidation.apiKey),
           body: JSON.stringify(requestBody),
-          signal: AbortSignal.timeout(5000), // 5 second timeout for test
+          signal: requestController.signal,
         },
       );
 
@@ -508,13 +385,19 @@ class APIClient {
         return { ok: false, errorMessage };
       }
 
-      return { ok: true };
+      return { ok: true, model: resolved.model };
     } catch (error) {
+      if (requestController.signal.aborted) {
+        return { ok: false, errorMessage: CONFIG.ERRORS.TIMEOUT };
+      }
+
       console.error("API key test failed:", error);
       return {
         ok: false,
         errorMessage: error.message || "API key test failed.",
       };
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 }

@@ -1,4 +1,4 @@
-import { getProviderConfig } from "./constants.js";
+import { getProviderConfig, validateProviderApiKey } from "./constants.js";
 import APIClient from "./api-client.js";
 import {
   loadSettings,
@@ -133,6 +133,7 @@ function updateApiKeyHelp(provider) {
     const a = document.createElement("a");
     a.href = apiKeyLink.url;
     a.target = "_blank";
+    a.rel = "noreferrer noopener";
     a.textContent = apiKeyLink.text;
     li.appendChild(a);
     apiKeyLinks.appendChild(li);
@@ -159,6 +160,14 @@ async function persistSettings() {
   };
 
   try {
+    if (apiKey.trim()) {
+      const validation = validateProviderApiKey(provider, apiKey);
+      if (!validation.ok) {
+        showMessage(validation.errorMessage, "red");
+        return;
+      }
+    }
+
     await saveSettings(settings);
     showMessage("Settings saved successfully!", "green");
   } catch (error) {
@@ -175,6 +184,12 @@ async function testApiKey() {
 
   if (!apiKey) {
     showMessage("Please enter an API key first", "red");
+    return;
+  }
+
+  const validation = validateProviderApiKey(provider, apiKey);
+  if (!validation.ok) {
+    showMessage(validation.errorMessage, "red");
     return;
   }
 

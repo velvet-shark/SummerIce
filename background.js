@@ -6,186 +6,285 @@ import {
   resolveYouTubeContent,
 } from "./modules/youtube-transcript.js";
 
-// Initialize modules
 const apiClient = new APIClient();
 const cache = new SummaryCache();
-let offscreenDocument = null;
 
-// Clean up cache on startup
-cache.cleanup();
+let offscreenDocument = false;
+let activeArticleExtractions = 0;
 
-// Migrate existing users to new settings format
-migrateUserSettings();
+const activeRequests = new Map();
+const requestIdsByTab = new Map();
 
-// Migration function for existing users
+cache.cleanup().catch((error) => {
+  console.error("Cache cleanup error:", error);
+});
+
+migrateUserSettings().catch((error) => {
+  console.error("Failed to migrate user settings:", error);
+});
+
 async function migrateUserSettings() {
-  return new Promise((resolve) => {
+  const result = await new Promise((resolve) => {
     chrome.storage.local.get(
       ["apiKey", "provider", "model", "migrated"],
-      (result) => {
-        // Skip if already migrated or this is a fresh install
-        if (result.migrated || (!result.apiKey && !result.provider)) {
-          resolve();
-          return;
-        }
-
-        // If user has an apiKey but no provider/model settings, migrate them
-        const migrationData = {
-          migrated: true,
-        };
-
-        // If they have an API key but no provider set, assume OpenAI (legacy behavior)
-        if (result.apiKey && !result.provider) {
-          migrationData.provider = CONFIG.DEFAULTS.provider; // 'openai'
-          migrationData.model = CONFIG.DEFAULTS.model; // default model fallback
-          migrationData.summaryLength = CONFIG.DEFAULTS.summaryLength;
-          migrationData.summaryFormat = CONFIG.DEFAULTS.summaryFormat;
-        }
-
-        // Save migration data
-        chrome.storage.local.set(migrationData, () => {
-          resolve();
-        });
+      (stored) => {
+        resolve(stored || {});
       },
     );
   });
+
+  if (chrome.runtime?.lastError) {
+    throw new Error(chrome.runtime.lastError.message);
+  }
+
+  if (result.migrated || (!result.apiKey && !result.provider)) {
+    return;
+  }
+
+  const migrationData = {
+    migrated: true,
+  };
+
+  if (result.apiKey && !result.provider) {
+    migrationData.provider = CONFIG.DEFAULTS.provider;
+    migrationData.model = CONFIG.DEFAULTS.model;
+    migrationData.summaryLength = CONFIG.DEFAULTS.summaryLength;
+    migrationData.summaryFormat = CONFIG.DEFAULTS.summaryFormat;
+  }
+
+  await new Promise((resolve, reject) => {
+    chrome.storage.local.set(migrationData, () => {
+      if (chrome.runtime?.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      resolve();
+    });
+  });
 }
 
-// After extension installation, run setup
-chrome.runtime.onInstalled.addListener(function (details) {
+chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
     chrome.tabs.create({ url: "setup.html" });
-  } else if (details.reason === "update") {
-    // Don't show setup for existing users, migration handles everything
   }
 });
 
-// Handle keyboard command
-chrome.commands.onCommand.addListener(function (command) {
-  if (command === "_execute_action") {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: "extractContent" });
-      }
-    });
-  }
-});
-
-// Create offscreen document for content extraction
 async function createOffscreenDocument() {
   if (offscreenDocument) {
     return;
   }
 
-  try {
-    await chrome.offscreen.createDocument({
-      url: "offscreen.html",
-      reasons: ["DOM_PARSER"],
-      justification:
-        "Parse HTML content using Mozilla Readability for article extraction",
-    });
-    offscreenDocument = true;
-  } catch (error) {
-    console.error("Failed to create offscreen document:", error);
-  }
+  await chrome.offscreen.createDocument({
+    url: "offscreen.html",
+    reasons: ["DOM_PARSER"],
+    justification:
+      "Parse HTML content using Mozilla Readability for article extraction",
+  });
+  offscreenDocument = true;
 }
 
-// Close offscreen document
 async function closeOffscreenDocument() {
-  if (!offscreenDocument) {
+  if (!offscreenDocument || activeArticleExtractions > 0) {
     return;
   }
 
-  try {
-    await chrome.offscreen.closeDocument();
-    offscreenDocument = false;
-  } catch (error) {
-    console.error("Failed to close offscreen document:", error);
-  }
+  await chrome.offscreen.closeDocument();
+  offscreenDocument = false;
 }
 
-const sendSummaryResult = ({ summary, title, fromCache }) => {
-  chrome.runtime.sendMessage({
+const scheduleOffscreenClose = (delayMs = 1000) => {
+  setTimeout(() => {
+    closeOffscreenDocument().catch((error) => {
+      console.error("Failed to close offscreen document:", error);
+    });
+  }, delayMs);
+};
+
+const sendRequestMessage = (message) => {
+  chrome.runtime.sendMessage(message);
+};
+
+const sendSummaryResult = ({ requestId, summary, title, fromCache }) => {
+  sendRequestMessage({
     type: "summarizationResult",
+    requestId,
     summary,
     title,
     fromCache,
   });
 };
 
-const sendSummaryError = (message) => {
-  chrome.runtime.sendMessage({
+const sendSummaryError = (requestId, message) => {
+  sendRequestMessage({
     type: "summarizationError",
+    requestId,
     error: message,
   });
 };
 
-const scheduleOffscreenClose = (delayMs = 1000) => {
-  setTimeout(() => closeOffscreenDocument(), delayMs);
+const isRequestActive = (requestId) => activeRequests.has(requestId);
+
+const cleanupRequest = (requestId) => {
+  const request = activeRequests.get(requestId);
+  if (!request) {
+    return;
+  }
+
+  activeRequests.delete(requestId);
+  if (requestIdsByTab.get(request.tabId) === requestId) {
+    requestIdsByTab.delete(request.tabId);
+  }
+};
+
+const cancelRequest = (requestId) => {
+  const request = activeRequests.get(requestId);
+  if (!request) {
+    return;
+  }
+
+  request.controller.abort();
+  cleanupRequest(requestId);
+};
+
+const cancelRequestForTab = (tabId) => {
+  const requestId = requestIdsByTab.get(tabId);
+  if (!requestId) {
+    return;
+  }
+
+  cancelRequest(requestId);
+};
+
+const requestTabExtraction = (tabId) =>
+  new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, { type: "extractContent" }, (result) => {
+      if (chrome.runtime?.lastError) {
+        reject(new Error(CONFIG.ERRORS.UNSUPPORTED_PAGE));
+        return;
+      }
+      resolve(result);
+    });
+  });
+
+const createAbortableFetch = (signal) => {
+  if (!signal) {
+    return fetch;
+  }
+
+  return async (resource, options = {}) => {
+    const requestController = new AbortController();
+    const upstreamSignals = [signal, options.signal].filter(Boolean);
+    const abortRequest = () => requestController.abort();
+
+    upstreamSignals.forEach((upstreamSignal) => {
+      upstreamSignal.addEventListener("abort", abortRequest, { once: true });
+    });
+
+    if (upstreamSignals.some((upstreamSignal) => upstreamSignal.aborted)) {
+      requestController.abort();
+    }
+
+    try {
+      return await fetch(resource, {
+        ...options,
+        signal: requestController.signal,
+      });
+    } finally {
+      upstreamSignals.forEach((upstreamSignal) => {
+        upstreamSignal.removeEventListener("abort", abortRequest);
+      });
+    }
+  };
 };
 
 const summarizeWithPipeline = async ({
-  url,
-  title,
+  requestId,
+  extractedContent,
   settings,
+  signal,
   resolveContent,
-  onFinally,
   logLabel = "Summarization error",
 }) => {
+  const { url, title } = extractedContent;
+
   try {
     const cachedEntry = await cache.get(url, settings);
     if (cachedEntry?.summary) {
-      sendSummaryResult({
-        summary: cachedEntry.summary,
-        fromCache: true,
-      });
-      return { fromCache: true };
+      if (isRequestActive(requestId)) {
+        sendSummaryResult({
+          requestId,
+          summary: cachedEntry.summary,
+          title,
+          fromCache: true,
+        });
+      }
+      return;
     }
 
     const resolved = await resolveContent();
     if (!resolved?.content) {
-      const errorMessage =
-        resolved?.error || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED;
-      const errorLabel = resolved?.errorLabel || logLabel;
-      console.error(`${errorLabel}:`, errorMessage);
-      sendSummaryError(errorMessage);
-      return { error: true };
+      if (isRequestActive(requestId)) {
+        const errorMessage =
+          resolved?.error || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED;
+        console.error(`${resolved?.errorLabel || logLabel}:`, errorMessage);
+        sendSummaryError(requestId, errorMessage);
+      }
+      return;
     }
 
-    const summary = await apiClient.callAPI(
-      resolved.content,
-      resolved.promptContext || {},
-    );
-    await cache.set(url, settings, summary);
+    const summary = await apiClient.callAPI(resolved.content, {
+      promptContext: resolved.promptContext || {},
+      settings,
+      signal,
+    });
+
+    if (!isRequestActive(requestId)) {
+      return;
+    }
+
+    try {
+      await cache.set(url, settings, summary);
+    } catch (error) {
+      console.error("Cache set error:", error);
+    }
 
     sendSummaryResult({
+      requestId,
       summary,
       title: resolved.title || title,
       fromCache: false,
     });
-
-    return { summary };
   } catch (error) {
-    console.error(`${logLabel}:`, error);
-    sendSummaryError(error.message || CONFIG.ERRORS.API_CALL_FAILED);
-    return { error: true };
-  } finally {
-    if (onFinally) {
-      onFinally();
+    if (signal.aborted || !isRequestActive(requestId)) {
+      return;
     }
+
+    console.error(`${logLabel}:`, error);
+    sendSummaryError(requestId, error.message || CONFIG.ERRORS.API_CALL_FAILED);
   }
 };
 
 const resolveArticleContent = async ({ htmlContent, url, title }) => {
+  activeArticleExtractions += 1;
+
   try {
     await createOffscreenDocument();
 
     const extractionResult = await new Promise((resolve) => {
       chrome.runtime.sendMessage(
         { type: "extractContent", htmlContent, url },
-        (result) => resolve(result),
+        (result) => {
+          resolve(result);
+        },
       );
     });
+
+    if (chrome.runtime?.lastError) {
+      return {
+        error: chrome.runtime.lastError.message,
+        errorLabel: "Content extraction error",
+      };
+    }
 
     if (!extractionResult || !extractionResult.success) {
       return {
@@ -204,6 +303,9 @@ const resolveArticleContent = async ({ htmlContent, url, title }) => {
       error: error.message || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED,
       errorLabel: "Content extraction error",
     };
+  } finally {
+    activeArticleExtractions = Math.max(0, activeArticleExtractions - 1);
+    scheduleOffscreenClose();
   }
 };
 
@@ -212,6 +314,7 @@ const resolveYouTubeSummaryContent = async ({
   url,
   title,
   settings,
+  signal,
 }) => {
   try {
     const transcriptMode =
@@ -222,7 +325,7 @@ const resolveYouTubeSummaryContent = async ({
       url,
       html: htmlContent,
       mode: transcriptMode,
-      fetchImpl: fetch,
+      fetchImpl: createAbortableFetch(signal),
       timeoutMs: CONFIG.TIMEOUT_MS,
     });
 
@@ -251,57 +354,102 @@ const resolveYouTubeSummaryContent = async ({
   }
 };
 
-// Main message handler
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === "extractedHTML") {
-    handleContentExtraction(request.htmlContent, request.url, request.title);
-  } else if (request.type === "cancelSummary") {
-    apiClient.cancelRequest();
-    closeOffscreenDocument();
-  }
-});
+const startSummaryRequest = async ({ requestId, tabId }) => {
+  cancelRequestForTab(tabId);
 
-// Handle content extraction and summarization
-async function handleContentExtraction(htmlContent, url, title) {
-  let settings;
+  const controller = new AbortController();
+  activeRequests.set(requestId, { tabId, controller });
+  requestIdsByTab.set(tabId, requestId);
+
   try {
-    settings = await apiClient.getSettings();
-  } catch (error) {
-    console.error("Failed to load settings:", error);
-    sendSummaryError(error.message || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED);
-    return;
-  }
+    const extractedContent = await requestTabExtraction(tabId);
+    if (!extractedContent?.success) {
+      if (isRequestActive(requestId)) {
+        sendSummaryError(
+          requestId,
+          extractedContent?.error || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED,
+        );
+      }
+      return;
+    }
 
-  const videoId = extractYouTubeVideoId(url);
-  if (videoId) {
+    const settings = await apiClient.getSettings();
+    if (!isRequestActive(requestId)) {
+      return;
+    }
+
+    const videoId = extractYouTubeVideoId(extractedContent.url);
+    if (videoId) {
+      await summarizeWithPipeline({
+        requestId,
+        extractedContent,
+        settings,
+        signal: controller.signal,
+        resolveContent: () =>
+          resolveYouTubeSummaryContent({
+            htmlContent: extractedContent.htmlContent,
+            url: extractedContent.url,
+            title: extractedContent.title,
+            settings,
+            signal: controller.signal,
+          }),
+        logLabel: "YouTube summarization error",
+      });
+      return;
+    }
+
     await summarizeWithPipeline({
-      url,
-      title,
+      requestId,
+      extractedContent,
       settings,
+      signal: controller.signal,
       resolveContent: () =>
-        resolveYouTubeSummaryContent({ htmlContent, url, title, settings }),
-      logLabel: "YouTube summarization error",
+        resolveArticleContent({
+          htmlContent: extractedContent.htmlContent,
+          url: extractedContent.url,
+          title: extractedContent.title,
+        }),
+      logLabel: "Summarization error",
     });
-    return;
+  } catch (error) {
+    if (!controller.signal.aborted && isRequestActive(requestId)) {
+      console.error("Summarization error:", error);
+      sendSummaryError(
+        requestId,
+        error.message || CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED,
+      );
+    }
+  } finally {
+    cleanupRequest(requestId);
+  }
+};
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === "startSummary") {
+    startSummaryRequest({
+      requestId: request.requestId,
+      tabId: request.tabId,
+    });
+    sendResponse({ started: true });
+    return true;
   }
 
-  await summarizeWithPipeline({
-    url,
-    title,
-    settings,
-    resolveContent: () => resolveArticleContent({ htmlContent, url, title }),
-    onFinally: scheduleOffscreenClose,
-    logLabel: "Summarization error",
-  });
-}
-
-// Handle extension lifecycle
-chrome.runtime.onSuspend.addListener(() => {
-  apiClient.cancelRequest();
-  closeOffscreenDocument();
+  if (request.type === "cancelSummary") {
+    cancelRequest(request.requestId);
+    sendResponse({ cancelled: true });
+    return false;
+  }
 });
 
-// Error handler for unhandled errors
+chrome.runtime.onSuspend.addListener(() => {
+  Array.from(activeRequests.keys()).forEach((requestId) =>
+    cancelRequest(requestId),
+  );
+  closeOffscreenDocument().catch((error) => {
+    console.error("Failed to close offscreen document:", error);
+  });
+});
+
 self.addEventListener("error", (event) => {
   console.error("Unhandled error in background script:", event.error);
 });
