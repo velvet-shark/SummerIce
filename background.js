@@ -10,6 +10,7 @@ const apiClient = new APIClient();
 const cache = new SummaryCache();
 
 let offscreenDocument = false;
+let creatingOffscreenDocument = null;
 let activeArticleExtractions = 0;
 
 const activeRequests = new Map();
@@ -69,21 +70,65 @@ chrome.runtime.onInstalled.addListener((details) => {
   }
 });
 
-async function createOffscreenDocument() {
-  if (offscreenDocument) {
-    return;
+async function hasExistingOffscreenDocument() {
+  if (typeof chrome.runtime.getContexts !== "function") {
+    return offscreenDocument;
   }
 
-  await chrome.offscreen.createDocument({
-    url: "offscreen.html",
-    reasons: ["DOM_PARSER"],
-    justification:
-      "Parse HTML content using Mozilla Readability for article extraction",
+  const contexts = await chrome.runtime.getContexts({
+    contextTypes: ["OFFSCREEN_DOCUMENT"],
+    documentUrls: [chrome.runtime.getURL("offscreen.html")],
   });
-  offscreenDocument = true;
+
+  return contexts.length > 0;
+}
+
+async function createOffscreenDocument() {
+  if (offscreenDocument) {
+    return true;
+  }
+
+  if (creatingOffscreenDocument) {
+    return creatingOffscreenDocument;
+  }
+
+  creatingOffscreenDocument = (async () => {
+    try {
+      if (await hasExistingOffscreenDocument()) {
+        offscreenDocument = true;
+        return true;
+      }
+
+      await chrome.offscreen.createDocument({
+        url: "offscreen.html",
+        reasons: ["DOM_PARSER"],
+        justification:
+          "Parse HTML content using Mozilla Readability for article extraction",
+      });
+      offscreenDocument = true;
+      return true;
+    } catch (error) {
+      const message = error?.message || "";
+      if (
+        message.includes("Only a single offscreen document") ||
+        message.includes("already exists")
+      ) {
+        offscreenDocument = true;
+        return true;
+      }
+
+      console.error("Failed to create offscreen document:", error);
+      return false;
+    } finally {
+      creatingOffscreenDocument = null;
+    }
+  })();
+
+  return creatingOffscreenDocument;
 }
 
 async function closeOffscreenDocument() {
+  creatingOffscreenDocument = null;
   if (!offscreenDocument || activeArticleExtractions > 0) {
     return;
   }
@@ -268,12 +313,28 @@ const resolveArticleContent = async ({ htmlContent, url, title }) => {
   activeArticleExtractions += 1;
 
   try {
-    await createOffscreenDocument();
+    const offscreenReady = await createOffscreenDocument();
+    if (!offscreenReady) {
+      return {
+        error: CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED,
+        errorLabel: "Content extraction error",
+      };
+    }
 
     const extractionResult = await new Promise((resolve) => {
       chrome.runtime.sendMessage(
         { type: "extractContent", htmlContent, url },
         (result) => {
+          if (chrome.runtime?.lastError) {
+            resolve({
+              success: false,
+              error:
+                chrome.runtime.lastError.message ||
+                CONFIG.ERRORS.CONTENT_EXTRACTION_FAILED,
+            });
+            return;
+          }
+
           resolve(result);
         },
       );

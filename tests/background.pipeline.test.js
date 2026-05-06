@@ -6,6 +6,7 @@ let sendMessageCalls;
 let extractionResponsesByTab;
 let extractionErrorByTab;
 let offscreenExtractionResponse;
+let offscreenExtractionRuntimeError;
 let cacheGetResult;
 let cacheSetCalls;
 let apiCallArgs;
@@ -13,6 +14,8 @@ let apiCallImplementation;
 let settingsResult;
 let youtubeVideoId;
 let youtubeContentResult;
+let offscreenContexts;
+let offscreenCreateImpl;
 
 vi.mock("../api-client.js", () => ({
   default: class APIClient {
@@ -84,9 +87,13 @@ const setupChromeMock = () => {
       onSuspend: {
         addListener: vi.fn(),
       },
+      getContexts: vi.fn(async () => offscreenContexts),
+      getURL: vi.fn((path) => `chrome-extension://test/${path}`),
       sendMessage: vi.fn((message, cb) => {
         if (message.type === "extractContent") {
+          global.chrome.runtime.lastError = offscreenExtractionRuntimeError;
           cb?.(offscreenExtractionResponse);
+          global.chrome.runtime.lastError = null;
           return;
         }
 
@@ -95,7 +102,7 @@ const setupChromeMock = () => {
       }),
     },
     offscreen: {
-      createDocument: vi.fn(async () => {}),
+      createDocument: vi.fn(async (...args) => offscreenCreateImpl(...args)),
       closeDocument: vi.fn(async () => {}),
     },
     tabs: {
@@ -158,6 +165,7 @@ describe("background summarize pipeline", () => {
       content: "Article content",
       title: "Extracted title",
     };
+    offscreenExtractionRuntimeError = null;
     cacheGetResult = null;
     cacheSetCalls = [];
     apiCallArgs = [];
@@ -172,6 +180,8 @@ describe("background summarize pipeline", () => {
     };
     youtubeVideoId = null;
     youtubeContentResult = null;
+    offscreenContexts = [];
+    offscreenCreateImpl = async () => {};
 
     setupChromeMock();
     await import("../background.js");
@@ -271,6 +281,36 @@ describe("background summarize pipeline", () => {
       type: "summarizationError",
       requestId: "request-video-error",
       error: CONFIG.ERRORS.YOUTUBE_TRANSCRIPT_UNAVAILABLE,
+    });
+  });
+
+  it("reuses an existing offscreen document", async () => {
+    offscreenContexts = [{ contextType: "OFFSCREEN_DOCUMENT" }];
+
+    await sendStartSummary("request-offscreen-reuse");
+    await flushPipeline();
+
+    expect(chrome.offscreen.createDocument).not.toHaveBeenCalled();
+    expect(sendMessageCalls[0]).toMatchObject({
+      type: "summarizationResult",
+      requestId: "request-offscreen-reuse",
+      summary: "Summary result",
+    });
+  });
+
+  it("reports offscreen messaging failures", async () => {
+    offscreenExtractionRuntimeError = {
+      message: "Could not establish connection. Receiving end does not exist.",
+    };
+
+    await sendStartSummary("request-offscreen-error");
+    await flushPipeline();
+
+    expect(apiCallArgs).toHaveLength(0);
+    expect(sendMessageCalls[0]).toMatchObject({
+      type: "summarizationError",
+      requestId: "request-offscreen-error",
+      error: "Could not establish connection. Receiving end does not exist.",
     });
   });
 

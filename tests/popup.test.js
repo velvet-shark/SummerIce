@@ -94,4 +94,33 @@ describe("popup rendering", () => {
       expect.any(Function),
     );
   });
+
+  it("registers runtime listeners before querying the active tab", async () => {
+    vi.resetModules();
+
+    const callOrder = [];
+    global.chrome = {
+      runtime: {
+        onMessage: {
+          addListener: vi.fn((listener) => {
+            runtimeMessageListener = listener;
+            callOrder.push("listener");
+          }),
+        },
+        openOptionsPage: vi.fn(),
+        sendMessage: vi.fn((message, cb) => cb?.({ started: true })),
+      },
+      tabs: {
+        query: vi.fn((_, cb) => {
+          callOrder.push("query");
+          cb([]);
+        }),
+      },
+    };
+
+    const { initializePopup } = await import("../popup.js");
+    initializePopup();
+
+    expect(callOrder).toEqual(["listener", "query"]);
+  });
 });
