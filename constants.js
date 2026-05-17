@@ -183,7 +183,7 @@ const PROVIDER_REGISTRY = {
     apiUrl: "https://api.x.ai/v1/chat/completions",
     ui: {
       description:
-        "Grok 4.1 Fast is xAI's current speed-focused text option and a better fit than the flagship line for cheap summarization.",
+        "Grok 4.20 Non-Reasoning is xAI's recommended non-reasoning model and the default fit for fast summarization. Grok 4.3 remains available for heavier reasoning workloads.",
       links: [
         {
           kind: "apiKey",
@@ -193,8 +193,12 @@ const PROVIDER_REGISTRY = {
       ],
     },
     models: {
-      "grok-4-1-fast-reasoning": {
-        name: "Grok 4.1 Fast",
+      "grok-4.20-non-reasoning": {
+        name: "Grok 4.20 Non-Reasoning",
+        maxTokens: 4096,
+      },
+      "grok-4.3": {
+        name: "Grok 4.3",
         maxTokens: 4096,
       },
     },

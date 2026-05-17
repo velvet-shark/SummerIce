@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SummerIce ☀️🧊 - Page Summarizer",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Summarize articles quickly with multiple AI providers (OpenAI, Anthropic, Gemini, Grok).",
   "permissions": ["activeTab", "storage", "offscreen"],
   "host_permissions": [

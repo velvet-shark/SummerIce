@@ -4,7 +4,7 @@
 
 A browser extension to summarize articles. Quickly.
 
-Current version: 2.3.0
+Current version: 2.3.1
 
 Extension on Chrome Web Store: [SummerIce ☀️🧊 - Page Summarizer](https://chromewebstore.google.com/detail/summerice-%E2%98%80%EF%B8%8F%F0%9F%A7%8A-page-summa/loaeklmefjdnkdgcgmeoopoajfbemffe?hl=en&authuser=0)
 

@@ -1,6 +1,6 @@
 {
   "name": "summerice-extension",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "A browser extension to summarize articles quickly using multiple LLM providers",
   "main": "background.js",
   "scripts": {

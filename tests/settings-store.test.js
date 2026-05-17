@@ -96,6 +96,15 @@ describe("settings store", () => {
     expect(normalized.model).toBe(firstModel);
   });
 
+  it("uses non-reasoning as the grok provider default", () => {
+    const normalized = normalizeSettings({
+      provider: "grok",
+      model: "invalid-model",
+    });
+
+    expect(normalized.model).toBe("grok-4.20-non-reasoning");
+  });
+
   it("merges and saves settings by default", async () => {
     await withStorage(
       {
@@ -127,7 +136,7 @@ describe("settings store", () => {
         await saveSettings(
           {
             provider: "grok",
-            model: "grok-4-1-fast-reasoning",
+            model: "grok-4.3",
             apiKey: "xai-test",
           },
           { merge: false },
@@ -135,7 +144,7 @@ describe("settings store", () => {
 
         expect(store).toMatchObject({
           provider: "grok",
-          model: "grok-4-1-fast-reasoning",
+          model: "grok-4.3",
           apiKey: "xai-test",
         });
       },
