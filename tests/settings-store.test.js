@@ -109,7 +109,7 @@ describe("settings store", () => {
     await withStorage(
       {
         provider: "openai",
-        model: "gpt-5.4-mini",
+        model: "gpt-5.4-nano",
         apiKey: "sk-test",
       },
       async (store) => {
@@ -117,7 +117,7 @@ describe("settings store", () => {
 
         expect(store).toMatchObject({
           provider: "openai",
-          model: "gpt-5.4-mini",
+          model: "gpt-5.4-nano",
           apiKey: "sk-test",
           summaryFormat: "bullets",
         });
@@ -129,7 +129,7 @@ describe("settings store", () => {
     await withStorage(
       {
         provider: "openai",
-        model: "gpt-5.4-mini",
+        model: "gpt-5.4-nano",
         apiKey: "sk-test",
       },
       async (store) => {
@@ -166,7 +166,7 @@ describe("settings store", () => {
       await expect(
         saveSettings({
           provider: "openai",
-          model: "gpt-5.4-mini",
+          model: "gpt-5.4-nano",
           apiKey: "sk-test",
         }),
       ).rejects.toThrow("Storage set failed");

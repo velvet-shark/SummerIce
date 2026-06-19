@@ -10,7 +10,7 @@ const PROVIDER_REGISTRY = {
     temperature: 0.7,
     ui: {
       description:
-        "OpenAI's GPT-5.4 Mini and Nano models are current low-latency options tuned for cost-sensitive, high-volume text workloads.",
+        "OpenAI's GPT-5.4 Nano is the default low-latency option for cost-sensitive summarization, with GPT-5 Nano available for ultra-budget summaries.",
       links: [
         {
           kind: "apiKey",
@@ -25,8 +25,8 @@ const PROVIDER_REGISTRY = {
       ],
     },
     models: {
-      "gpt-5.4-mini": { name: "GPT-5.4 Mini", maxTokens: 8192 },
       "gpt-5.4-nano": { name: "GPT-5.4 Nano", maxTokens: 4096 },
+      "gpt-5-nano": { name: "GPT-5 Nano", maxTokens: 4096 },
     },
     validateApiKey(apiKey) {
       return apiKey.startsWith(this.keyPrefix);
@@ -115,7 +115,7 @@ const PROVIDER_REGISTRY = {
     apiUrl: "https://generativelanguage.googleapis.com/v1beta/models",
     ui: {
       description:
-        "Gemini 2.5 Flash-Lite is Google's budget-speed sweet spot, with Gemini 2.5 Flash available as the higher-quality step up.",
+        "Gemini 3.1 Flash-Lite is Google's budget-speed fit for summarization, with Gemini 3.5 Flash available as the higher-quality step up.",
       links: [
         {
           kind: "apiKey",
@@ -130,12 +130,12 @@ const PROVIDER_REGISTRY = {
       ],
     },
     models: {
-      "gemini-2.5-flash-lite": {
-        name: "Gemini 2.5 Flash-Lite",
+      "gemini-3.1-flash-lite": {
+        name: "Gemini 3.1 Flash-Lite",
         maxTokens: 8192,
       },
-      "gemini-2.5-flash": {
-        name: "Gemini 2.5 Flash",
+      "gemini-3.5-flash": {
+        name: "Gemini 3.5 Flash",
         maxTokens: 8192,
       },
     },
@@ -281,7 +281,7 @@ export const CONFIG = {
   // Default settings
   DEFAULTS: {
     provider: "openai",
-    model: "gpt-5.4-mini",
+    model: "gpt-5.4-nano",
     summaryLength: "STANDARD",
     summaryFormat: "paragraph",
     youtubeTranscriptMode: "auto",
