@@ -172,7 +172,7 @@ describe("background summarize pipeline", () => {
     apiCallImplementation = async () => "Summary result";
     settingsResult = {
       provider: "openai",
-      model: "gpt-5.4-nano",
+      model: "gpt-6-luna",
       apiKey: "sk-test",
       summaryLength: "STANDARD",
       summaryFormat: "paragraph",
