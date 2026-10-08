@@ -52,72 +52,20 @@ const parseErrorMessage = async (response) => {
   }
 };
 
-const buildRequest = (providerId, model, apiKey) => {
-  switch (providerId) {
-    case "openai": {
-      return {
-        url: CONFIG.LLM_PROVIDERS.OPENAI.apiUrl,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: {
-          model,
-          max_completion_tokens: 10,
-          messages: [{ role: "user", content: TEST_PROMPT }]
-        }
-      };
-    }
-    case "anthropic": {
-      return {
-        url: CONFIG.LLM_PROVIDERS.ANTHROPIC.apiUrl,
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true"
-        },
-        body: {
-          model,
-          max_tokens: 10,
-          messages: [{ role: "user", content: TEST_PROMPT }]
-        }
-      };
-    }
-    case "gemini": {
-      return {
-        url: `${CONFIG.LLM_PROVIDERS.GEMINI.apiUrl}/${model}:generateContent?key=${apiKey}`,
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: {
-          contents: [{ parts: [{ text: TEST_PROMPT }] }],
-          generationConfig: {
-            maxOutputTokens: 10,
-            temperature: 0.7
-          }
-        }
-      };
-    }
-    case "grok": {
-      return {
-        url: CONFIG.LLM_PROVIDERS.GROK.apiUrl,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: {
-          model,
-          max_tokens: 10,
-          messages: [{ role: "user", content: TEST_PROMPT }],
-          temperature: 0.7
-        }
-      };
-    }
-    default:
-      throw new Error(`Unsupported provider: ${providerId}`);
-  }
-};
+// Use the registry's own request builders so provider-specific params are verified too.
+const buildRequest = (providerConfig, model, apiKey) => ({
+  url: providerConfig.getApiUrl({ providerConfig, model, apiKey }),
+  headers: {
+    "Content-Type": "application/json",
+    ...providerConfig.getHeaders({ apiKey })
+  },
+  body: providerConfig.buildRequest({
+    prompt: TEST_PROMPT,
+    model,
+    maxTokens: 10,
+    providerConfig
+  })
+});
 
 const main = async () => {
   loadDotEnv();
@@ -138,7 +86,7 @@ const main = async () => {
     const modelIds = Object.keys(providerConfig.models);
 
     for (const model of modelIds) {
-      const request = buildRequest(providerId, model, apiKey);
+      const request = buildRequest(providerConfig, model, apiKey);
       try {
         const response = await Promise.race([
           fetch(request.url, {

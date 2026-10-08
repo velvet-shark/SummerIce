@@ -10,7 +10,7 @@ const PROVIDER_REGISTRY = {
     temperature: 0.7,
     ui: {
       description:
-        "OpenAI's GPT-5.4 Nano is the default low-latency option for cost-sensitive summarization, with GPT-5 Nano available for ultra-budget summaries.",
+        "OpenAI's GPT-6 Luna is the default low-latency option for cost-sensitive summarization, with GPT-6.1 Sol available as the higher-quality step up.",
       links: [
         {
           kind: "apiKey",
@@ -25,8 +25,16 @@ const PROVIDER_REGISTRY = {
       ],
     },
     models: {
-      "gpt-5.4-nano": { name: "GPT-5.4 Nano", maxTokens: 4096 },
-      "gpt-5-nano": { name: "GPT-5 Nano", maxTokens: 4096 },
+      "gpt-6-luna": {
+        name: "GPT-6 Luna",
+        maxTokens: 4096,
+        reasoningEffort: "none",
+      },
+      "gpt-6.1-sol": {
+        name: "GPT-6.1 Sol",
+        maxTokens: 8192,
+        reasoningEffort: "low",
+      },
     },
     validateApiKey(apiKey) {
       return apiKey.startsWith(this.keyPrefix);
@@ -37,8 +45,12 @@ const PROVIDER_REGISTRY = {
         max_completion_tokens: maxTokens,
         messages: [{ role: "user", content: prompt }],
       };
+      const reasoningEffort = providerConfig.models[model]?.reasoningEffort;
+      if (reasoningEffort) {
+        requestBody.reasoning_effort = reasoningEffort;
+      }
       const temperature = providerConfig.temperature;
-      if (!model.startsWith("gpt-5") && typeof temperature === "number") {
+      if (!/^gpt-[5-9]/.test(model) && typeof temperature === "number") {
         requestBody.temperature = temperature;
       }
       return requestBody;
@@ -65,7 +77,7 @@ const PROVIDER_REGISTRY = {
     apiUrl: "https://api.anthropic.com/v1/messages",
     ui: {
       description:
-        "Claude Haiku 4.5 is Anthropic's fast, lightweight text model and remains the cheapest fit in Claude's lineup for short summaries.",
+        "Claude Haiku 5.5 is Anthropic's fastest and cheapest model and the default fit for short summaries, with Claude Sonnet 5.5 available as the higher-quality step up.",
       links: [
         {
           kind: "apiKey",
@@ -75,21 +87,32 @@ const PROVIDER_REGISTRY = {
       ],
     },
     models: {
-      "claude-haiku-4-5": {
-        name: "Claude Haiku 4.5",
+      "claude-haiku-5-5": {
+        name: "Claude Haiku 5.5",
         maxTokens: 8192,
+        reasoningEffort: "low",
+      },
+      "claude-sonnet-5-5": {
+        name: "Claude Sonnet 5.5",
+        maxTokens: 8192,
+        reasoningEffort: "low",
       },
     },
     validateApiKey(apiKey) {
       return apiKey.startsWith(this.keyPrefix);
     },
-    buildRequest({ prompt, model, maxTokens }) {
-      return {
+    buildRequest({ prompt, model, maxTokens, providerConfig }) {
+      const requestBody = {
         model,
         max_tokens: maxTokens,
         messages: [{ role: "user", content: prompt }],
         system: DEFAULT_SYSTEM_PROMPT,
       };
+      const reasoningEffort = providerConfig.models[model]?.reasoningEffort;
+      if (reasoningEffort) {
+        requestBody.output_config = { effort: reasoningEffort };
+      }
+      return requestBody;
     },
     getHeaders({ apiKey }) {
       return {
@@ -102,10 +125,9 @@ const PROVIDER_REGISTRY = {
       return providerConfig.apiUrl;
     },
     parseResponse(data) {
-      if (data.content && data.content.length > 0) {
-        return data.content[0].text;
-      }
-      return null;
+      // Adaptive thinking can put thinking blocks before the text block.
+      const textBlock = data.content?.find((block) => block.type === "text");
+      return textBlock ? textBlock.text : null;
     },
   },
   gemini: {
@@ -115,7 +137,7 @@ const PROVIDER_REGISTRY = {
     apiUrl: "https://generativelanguage.googleapis.com/v1beta/models",
     ui: {
       description:
-        "Gemini 3.1 Flash-Lite is Google's budget-speed fit for summarization, with Gemini 3.5 Flash available as the higher-quality step up.",
+        "Gemini 3.1 Flash-Lite is Google's budget-speed fit for summarization, with Gemini 3.8 Flash available as the higher-quality step up.",
       links: [
         {
           kind: "apiKey",
@@ -134,16 +156,17 @@ const PROVIDER_REGISTRY = {
         name: "Gemini 3.1 Flash-Lite",
         maxTokens: 8192,
       },
-      "gemini-3.5-flash": {
-        name: "Gemini 3.5 Flash",
+      "gemini-3.8-flash": {
+        name: "Gemini 3.8 Flash",
         maxTokens: 8192,
+        reasoningEffort: "low",
       },
     },
     validateApiKey(apiKey) {
       return apiKey.startsWith(this.keyPrefix);
     },
     buildRequest({ prompt, model, maxTokens, providerConfig }) {
-      return {
+      const requestBody = {
         contents: [
           {
             parts: [{ text: prompt }],
@@ -155,6 +178,13 @@ const PROVIDER_REGISTRY = {
           temperature: 0.7,
         },
       };
+      const reasoningEffort = providerConfig.models[model]?.reasoningEffort;
+      if (reasoningEffort) {
+        requestBody.generationConfig.thinkingConfig = {
+          thinkingLevel: reasoningEffort,
+        };
+      }
+      return requestBody;
     },
     getHeaders() {
       return {};
@@ -281,7 +311,7 @@ export const CONFIG = {
   // Default settings
   DEFAULTS: {
     provider: "openai",
-    model: "gpt-5.4-nano",
+    model: "gpt-6-luna",
     summaryLength: "STANDARD",
     summaryFormat: "paragraph",
     youtubeTranscriptMode: "auto",
