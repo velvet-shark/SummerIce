@@ -4,13 +4,13 @@
 SummerIce is a Chrome extension built with vanilla ES modules. Core runtime logic lives in `background.js`, orchestrating API calls through `api-client.js` and caching via `cache.js`. User-facing scripts sit in `popup.js`, `settings.js`, `setup.js`, and `content.js`, while shared constants stay in `constants.js`. Static entry points (`popup.html`, `settings.html`, `setup.html`, `offscreen.html`) load from the project root; assets remain in `images/`, and styling is centralized in `style.css`. Shared helpers live in `modules/` (e.g., `modules/youtube-transcript.js`, `modules/settings-store.js`, `modules/provider-ui.js`, `modules/text-utils.js`, `modules/prompts.js`). Add new modules alongside these files, or group reusable helpers under `modules/`.
 
 ## Build, Test, and Development Commands
-- `npm install` installs extension dependencies; run after pulling new changes.
-- `npm run build` revalidates dependency installation and surfaces install failures in CI.
+- `npm install` installs extension dependencies; run when dependency declarations or the lockfile change.
+- `npm run build` runs the Vitest suite and then creates the extension ZIP with `build:zip`; a successful build already includes that test run.
 - `npm run test` runs the Vitest suite.
 For local iteration, load the unpacked folder in Chrome: open `chrome://extensions`, enable Developer Mode, choose *Load unpacked*, and select this repository root.
 
 ## Coding Style & Naming Conventions
-Use modern ES2020 syntax with explicit `import`/`export`. Follow the prevailing two-space indentation, retain trailing semicolons, and prefer double quotes for DOM-facing strings. Keep filenames in `kebab-case.js` and export classes in `PascalCase`. DOM IDs and CSS classes stay kebab-cased, while handler functions follow `handleEventName` patterns. Run `npx prettier --write "*.js"` before submitting; the default profile matches current formatting.
+Use modern ES2020 syntax with explicit `import`/`export`. Follow the prevailing two-space indentation, retain trailing semicolons, and prefer double quotes for DOM-facing strings. Keep filenames in `kebab-case.js` and export classes in `PascalCase`. DOM IDs and CSS classes stay kebab-cased, while handler functions follow `handleEventName` patterns. Format affected JavaScript files with the existing Prettier configuration; avoid reformatting unrelated files.
 
 ## Testing Guidelines
 Automated tests run with Vitest via `npm run test`. Add coverage under `tests/feature-name.test.js`, and keep the runner consistent with the existing Vitest setup. Document manual QA in PRs—verify summarization flows via `setup.html`, error states in `background.js`, and keyboard shortcuts on Chrome 121+.

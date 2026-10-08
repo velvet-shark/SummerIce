@@ -10,7 +10,7 @@ const PROVIDER_REGISTRY = {
     temperature: 0.7,
     ui: {
       description:
-        "OpenAI's GPT-5.4 Nano is the default low-latency option for cost-sensitive summarization, with GPT-5 Nano available for ultra-budget summaries.",
+        "OpenAI's GPT-5.6 Luna is the default low-latency option for cost-sensitive summarization, with GPT-5 Nano available for ultra-budget summaries.",
       links: [
         {
           kind: "apiKey",
@@ -25,7 +25,7 @@ const PROVIDER_REGISTRY = {
       ],
     },
     models: {
-      "gpt-5.4-nano": { name: "GPT-5.4 Nano", maxTokens: 4096 },
+      "gpt-5.6-luna": { name: "GPT-5.6 Luna", maxTokens: 4096 },
       "gpt-5-nano": { name: "GPT-5 Nano", maxTokens: 4096 },
     },
     validateApiKey(apiKey) {
@@ -37,6 +37,9 @@ const PROVIDER_REGISTRY = {
         max_completion_tokens: maxTokens,
         messages: [{ role: "user", content: prompt }],
       };
+      if (model === "gpt-5.6-luna") {
+        requestBody.reasoning_effort = "none";
+      }
       const temperature = providerConfig.temperature;
       if (!model.startsWith("gpt-5") && typeof temperature === "number") {
         requestBody.temperature = temperature;
@@ -115,7 +118,7 @@ const PROVIDER_REGISTRY = {
     apiUrl: "https://generativelanguage.googleapis.com/v1beta/models",
     ui: {
       description:
-        "Gemini 3.1 Flash-Lite is Google's budget-speed fit for summarization, with Gemini 3.5 Flash available as the higher-quality step up.",
+        "Gemini 3.5 Flash-Lite is Google's fast, lightweight default for summarization, with Gemini 3.1 Flash-Lite available as a cheaper alternative.",
       links: [
         {
           kind: "apiKey",
@@ -130,12 +133,12 @@ const PROVIDER_REGISTRY = {
       ],
     },
     models: {
-      "gemini-3.1-flash-lite": {
-        name: "Gemini 3.1 Flash-Lite",
+      "gemini-3.5-flash-lite": {
+        name: "Gemini 3.5 Flash-Lite",
         maxTokens: 8192,
       },
-      "gemini-3.5-flash": {
-        name: "Gemini 3.5 Flash",
+      "gemini-3.1-flash-lite": {
+        name: "Gemini 3.1 Flash-Lite",
         maxTokens: 8192,
       },
     },
@@ -183,7 +186,7 @@ const PROVIDER_REGISTRY = {
     apiUrl: "https://api.x.ai/v1/chat/completions",
     ui: {
       description:
-        "Grok 4.20 Non-Reasoning is xAI's recommended non-reasoning model and the default fit for fast summarization. Grok 4.3 remains available for heavier reasoning workloads.",
+        "Grok 4.20 Non-Reasoning creates quick summaries without additional reasoning, at a lower token price than Grok 4.6.",
       links: [
         {
           kind: "apiKey",
@@ -195,10 +198,6 @@ const PROVIDER_REGISTRY = {
     models: {
       "grok-4.20-non-reasoning": {
         name: "Grok 4.20 Non-Reasoning",
-        maxTokens: 4096,
-      },
-      "grok-4.3": {
-        name: "Grok 4.3",
         maxTokens: 4096,
       },
     },
@@ -281,7 +280,7 @@ export const CONFIG = {
   // Default settings
   DEFAULTS: {
     provider: "openai",
-    model: "gpt-5.4-nano",
+    model: "gpt-5.6-luna",
     summaryLength: "STANDARD",
     summaryFormat: "paragraph",
     youtubeTranscriptMode: "auto",

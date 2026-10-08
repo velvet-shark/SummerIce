@@ -105,11 +105,60 @@ describe("settings store", () => {
     expect(normalized.model).toBe("grok-4.20-non-reasoning");
   });
 
+  it.each([
+    ["openai", "gpt-5.4-nano", "gpt-5.6-luna"],
+    ["gemini", "gemini-3.5-flash", "gemini-3.5-flash-lite"],
+    ["grok", "grok-4.3", "grok-4.20-non-reasoning"],
+  ])(
+    "migrates removed %s models while preserving settings",
+    (provider, model, expected) => {
+      expect(
+        normalizeSettings({
+          provider,
+          model,
+          apiKey: "test-key",
+          summaryFormat: "bullets",
+        }),
+      ).toMatchObject({
+        provider,
+        model: expected,
+        apiKey: "test-key",
+        summaryFormat: "bullets",
+      });
+    },
+  );
+
+  it("keeps a saved budget Gemini model instead of replacing it with the new default", () => {
+    expect(
+      normalizeSettings({ provider: "gemini", model: "gemini-3.1-flash-lite" })
+        .model,
+    ).toBe("gemini-3.1-flash-lite");
+    expect(normalizeSettings({ provider: "gemini" }).model).toBe(
+      "gemini-3.5-flash-lite",
+    );
+  });
+
+  it("disables Luna reasoning without sending an unsupported option to GPT-5 Nano", () => {
+    const providerConfig = CONFIG.LLM_PROVIDERS.OPENAI;
+    const request = (model) =>
+      providerConfig.buildRequest({
+        prompt: "Summarize this article",
+        model,
+        maxTokens: 4096,
+        providerConfig,
+      });
+    expect(request("gpt-5.6-luna")).toMatchObject({
+      reasoning_effort: "none",
+      max_completion_tokens: 4096,
+    });
+    expect(request("gpt-5-nano")).not.toHaveProperty("reasoning_effort");
+  });
+
   it("merges and saves settings by default", async () => {
     await withStorage(
       {
         provider: "openai",
-        model: "gpt-5.4-nano",
+        model: "gpt-5.6-luna",
         apiKey: "sk-test",
       },
       async (store) => {
@@ -117,7 +166,7 @@ describe("settings store", () => {
 
         expect(store).toMatchObject({
           provider: "openai",
-          model: "gpt-5.4-nano",
+          model: "gpt-5.6-luna",
           apiKey: "sk-test",
           summaryFormat: "bullets",
         });
@@ -129,14 +178,14 @@ describe("settings store", () => {
     await withStorage(
       {
         provider: "openai",
-        model: "gpt-5.4-nano",
+        model: "gpt-5.6-luna",
         apiKey: "sk-test",
       },
       async (store) => {
         await saveSettings(
           {
             provider: "grok",
-            model: "grok-4.3",
+            model: "grok-4.20-non-reasoning",
             apiKey: "xai-test",
           },
           { merge: false },
@@ -144,7 +193,7 @@ describe("settings store", () => {
 
         expect(store).toMatchObject({
           provider: "grok",
-          model: "grok-4.3",
+          model: "grok-4.20-non-reasoning",
           apiKey: "xai-test",
         });
       },
@@ -166,7 +215,7 @@ describe("settings store", () => {
       await expect(
         saveSettings({
           provider: "openai",
-          model: "gpt-5.4-nano",
+          model: "gpt-5.6-luna",
           apiKey: "sk-test",
         }),
       ).rejects.toThrow("Storage set failed");
