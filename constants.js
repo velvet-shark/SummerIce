@@ -133,7 +133,9 @@ const PROVIDER_REGISTRY = {
   gemini: {
     id: "gemini",
     name: "Google Gemini",
-    keyPrefix: "AI",
+    // AI Studio only creates auth keys ("AQ.") since 2026-05-28; older keys start with "AIza".
+    keyPrefix: "AQ.",
+    legacyKeyPrefix: "AI",
     apiUrl: "https://generativelanguage.googleapis.com/v1beta/models",
     ui: {
       description:
@@ -162,7 +164,10 @@ const PROVIDER_REGISTRY = {
       },
     },
     validateApiKey(apiKey) {
-      return apiKey.startsWith(this.keyPrefix);
+      return (
+        apiKey.startsWith(this.keyPrefix) ||
+        apiKey.startsWith(this.legacyKeyPrefix)
+      );
     },
     buildRequest({ prompt, model, maxTokens, providerConfig }) {
       const requestBody = {
@@ -185,11 +190,12 @@ const PROVIDER_REGISTRY = {
       }
       return requestBody;
     },
-    getHeaders() {
-      return {};
+    // Google documents the header for both key types, and keeps the key out of URLs.
+    getHeaders({ apiKey }) {
+      return { "x-goog-api-key": apiKey };
     },
-    getApiUrl({ providerConfig, model, apiKey }) {
-      return `${providerConfig.apiUrl}/${model}:generateContent?key=${apiKey}`;
+    getApiUrl({ providerConfig, model }) {
+      return `${providerConfig.apiUrl}/${model}:generateContent`;
     },
     parseResponse(data) {
       if (data.candidates && data.candidates.length > 0) {
@@ -265,7 +271,8 @@ const LEGACY_PROVIDER_MAP = Object.fromEntries(
 // Configuration constants
 export const CONFIG = {
   // Timing constants
-  TIMEOUT_MS: 25000,
+  // Gemini often took 10 to 20 seconds per request in October 2026, even for tiny prompts.
+  TIMEOUT_MS: 60000,
   CACHE_TTL_HOURS: 24,
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY_BASE: 1000,

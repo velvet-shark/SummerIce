@@ -357,7 +357,10 @@ class APIClient {
     }
 
     const requestController = new AbortController();
-    const timeoutId = setTimeout(() => requestController.abort(), 5000);
+    const timeoutId = setTimeout(
+      () => requestController.abort(),
+      CONFIG.TIMEOUT_MS,
+    );
 
     try {
       const requestBody = providerConfig.buildRequest({

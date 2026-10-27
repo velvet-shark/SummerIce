@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getProviderConfig } from "../constants.js";
+import { getProviderConfig, validateProviderApiKey } from "../constants.js";
 
 const build = (providerId, model) => {
   const providerConfig = getProviderConfig(providerId);
@@ -48,6 +48,32 @@ describe("provider request builders", () => {
     expect(
       build("gemini", "gemini-3.5-flash-lite").generationConfig,
     ).not.toHaveProperty("thinkingConfig");
+  });
+});
+
+describe("gemini api keys", () => {
+  it("accepts auth keys and older standard keys", () => {
+    expect(validateProviderApiKey("gemini", "AQ.Ab8test-key").ok).toBe(true);
+    expect(validateProviderApiKey("gemini", "AIzaSyTestKey").ok).toBe(true);
+    expect(validateProviderApiKey("gemini", "sk-not-a-gemini-key").ok).toBe(
+      false,
+    );
+  });
+
+  it("sends the key in a header, not in the URL", () => {
+    const providerConfig = getProviderConfig("gemini");
+    const apiKey = "AQ.Ab8test-key";
+
+    expect(providerConfig.getHeaders({ apiKey })).toEqual({
+      "x-goog-api-key": apiKey,
+    });
+    expect(
+      providerConfig.getApiUrl({
+        providerConfig,
+        model: "gemini-3.5-flash-lite",
+        apiKey,
+      }),
+    ).not.toContain(apiKey);
   });
 });
 
