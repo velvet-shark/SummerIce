@@ -12,6 +12,13 @@ describe("summary prompt", () => {
     expect(prompt).toContain("well-structured paragraphs");
   });
 
+  it("asks for plain text in both formats", () => {
+    for (const format of ["bullets", "paragraph"]) {
+      const prompt = getSummaryPrompt("Some content", "STANDARD", format);
+      expect(prompt).toContain("no Markdown formatting");
+    }
+  });
+
   it("uses transcript wording for video sources", () => {
     const prompt = getSummaryPrompt(
       "Transcript content",

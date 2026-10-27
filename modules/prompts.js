@@ -1,9 +1,13 @@
 import { CONFIG } from "../constants.js";
 
+// The popup shows summaries as plain text, so Markdown would appear as raw symbols.
+const PLAIN_TEXT_INSTRUCTION =
+  "Write plain text only, with no Markdown formatting (no asterisks for bold, no headings, no backticks).";
+
 const getFormatInstruction = (summaryFormat) =>
   summaryFormat === "bullets"
-    ? "Format the summary as clear bullet points."
-    : "Format the summary in well-structured paragraphs.";
+    ? `Format the summary as clear bullet points, starting each one with "• ". ${PLAIN_TEXT_INSTRUCTION}`
+    : `Format the summary in well-structured paragraphs. ${PLAIN_TEXT_INSTRUCTION}`;
 
 const getSourceLabels = (options = {}) => {
   const sourceType = options.sourceType || "article";

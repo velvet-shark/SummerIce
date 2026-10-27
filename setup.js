@@ -159,8 +159,7 @@ async function saveSetup() {
     const iconItem = document.createElement("li");
     iconItem.textContent = "Clicking the SummerIce extension icon";
     const shortcutItem = document.createElement("li");
-    shortcutItem.textContent =
-      "Pressing Ctrl+Shift+Y (Windows) or Cmd+Shift+Y (Mac)";
+    shortcutItem.textContent = await getShortcutInstruction();
     list.append(iconItem, shortcutItem);
     const settingsNote = document.createElement("p");
     settingsNote.textContent =
@@ -188,6 +187,23 @@ async function saveSetup() {
     submitButton.disabled = false;
     submitButton.textContent = "Save & Start";
   }
+}
+
+// The suggested shortcut is not always assigned (it can clash with a browser or
+// another extension's shortcut, e.g. in Edge), so show what was actually set.
+async function getShortcutInstruction() {
+  try {
+    const commands = await chrome.commands.getAll();
+    const actionCommand = commands.find(
+      (command) => command.name === "_execute_action",
+    );
+    if (actionCommand?.shortcut) {
+      return `Pressing ${actionCommand.shortcut}`;
+    }
+  } catch (error) {
+    console.warn("Could not read the keyboard shortcut:", error);
+  }
+  return "Setting a keyboard shortcut on your browser's extension shortcuts page";
 }
 
 function showSetupError(message) {
